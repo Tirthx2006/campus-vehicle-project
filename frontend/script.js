@@ -56,9 +56,10 @@ function showPage(pageName) {
 
     // ✅ Cleaned up the duplicates in this list
     const pages = [
-        "home", "about", "trips", "support", "passenger", "driver", 
-        "driver-reg", "profile", "settings", "driver-route-share", 
-        "driver-command-center", "passenger-route-search"
+    "home", "about", "trips", "support", "passenger", "driver", 
+    "driver-reg", "profile", "settings", "driver-route-share", 
+    "driver-command-center", "passenger-route-search", 
+    "passenger-mission-status" // ✅ ADDED THIS
     ];
 
     pages.forEach(p => {
