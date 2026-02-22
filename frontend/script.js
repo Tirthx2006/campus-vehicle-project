@@ -205,7 +205,7 @@ async function updateGenderInDB(newGender) {
 
     try {
         // 1. Update the backend
-        const response = await fetch("http://localhost:5000/update-profile", {
+        const response = await fetch("https://campus-vehicle-project.onrender.com/update-profile", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -292,7 +292,7 @@ function publishRoute() {
         return;
     }
 
-    fetch("http://localhost:5000/publish-route", {
+    fetch("https://campus-vehicle-project.onrender.com/publish-route", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(routeData)
@@ -313,7 +313,7 @@ function publishRoute() {
 function acceptPassenger(passengerEmail) {
     const userData = JSON.parse(localStorage.getItem("user"));
 
-    fetch("http://localhost:5000/accept-passenger", {
+    fetch("https://campus-vehicle-project.onrender.com/accept-passenger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -345,7 +345,7 @@ function submitDriverRegistration() {
 
     const userData = JSON.parse(localStorage.getItem("user"));
 
-    fetch("http://localhost:5000/update-driver-status", {
+    fetch("https://campus-vehicle-project.onrender.com/update-driver-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -372,7 +372,7 @@ function searchActiveRoutes() {
         return;
     }
 
-    fetch(`http://localhost:5000/search-routes?destination=${query}`)
+    fetch(`https://campus-vehicle-project.onrender.com/search-routes?destination=${query}`)
         .then(res => res.json())
         .then(rides => {
             if (rides.length === 0) {
@@ -396,7 +396,7 @@ function searchActiveRoutes() {
 function requestJoinRide(rideId) {
     const userData = JSON.parse(localStorage.getItem("user"));
 
-    fetch("http://localhost:5000/request-ride", {
+    fetch("https://campus-vehicle-project.onrender.com/request-ride", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -470,7 +470,7 @@ function startRequestPoller() {
             return;
         }
 
-        fetch(`http://localhost:5000/get-ride-requests?driverEmail=${userData.email}`)
+        fetch(`https://campus-vehicle-project.onrender.com/get-ride-requests?driverEmail=${userData.email}`)
             .then(res => res.json())
             .then(requests => {
                 const container = document.getElementById("cc-requests-container");
