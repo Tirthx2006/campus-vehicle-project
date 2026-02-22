@@ -224,6 +224,51 @@ app.get("/get-ride-requests", async (req, res) => {
   } catch (err) { res.status(500).send("Error"); }
 });
 
-app.listen(5000, () => {
-  console.log("Backend running.");
+// ✅ HANDSHAKE: Accept Passenger & Deduct Seat
+app.post("/accept-passenger", async (req, res) => {
+    const { driverEmail, passengerEmail } = req.body;
+    try {
+        const ride = await Ride.findOne({ driverEmail, status: 'active' });
+        
+        if (!ride || ride.seats <= 0) {
+            return res.status(400).json({ message: "No seats available or trajectory not found" });
+        }
+
+        // Find the passenger's specific request
+        const request = ride.requests.find(r => r.email === passengerEmail);
+        if (request) {
+            request.status = 'accepted';
+            ride.seats -= 1; // 📉 Official seat reduction
+            await ride.save();
+            
+            res.json({ 
+                message: "Passenger linked", 
+                bookedSeats: ride.requests.filter(r => r.status === 'accepted').length,
+                totalSeats: ride.seats + ride.requests.filter(r => r.status === 'accepted').length 
+            });
+        } else {
+            res.status(404).json({ message: "Request not found" });
+        }
+    } catch (err) {
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+app.get("/get-my-request-status", async (req, res) => {
+    const { rideId, email } = req.query;
+    try {
+        const ride = await Ride.findById(rideId);
+        if (!ride) return res.status(404).send("Ride not found");
+        
+        const myRequest = ride.requests.find(r => r.email === email);
+        res.json({ status: myRequest ? myRequest.status : 'not_found' });
+    } catch (err) {
+        res.status(500).send("Error");
+    }
+});
+
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Backend running on port ${PORT}`);
 });
