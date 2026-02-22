@@ -270,7 +270,26 @@
             </div>
         </div>
 
+        <div id="page-passenger-mission-status" class="hidden">
+            <div class="glass-card">
+                <h3 style="color: #4e69e2;">Mission Status</h3>
+        
+            <div style="margin: 30px 0;">
+                <div id="ps-status-orb" class="pulse-orb pending"></div>
+                <p id="ps-status-text" style="font-weight: bold; margin-top: 15px;">Awaiting Driver Response...</p>
+            </div>
 
+            <div id="ps-mission-details" style="text-align: left; background: rgba(78, 105, 226, 0.05); padding: 20px; border-radius: 20px;">
+                <div class="info-label">Agreement Status</div>
+                <div style="font-size: 14px; color: #444; margin-bottom: 10px;">
+                Your trajectory request is currently being reviewed by the driver.
+                </div>
+            </div>
+
+            <button class="btn-primary" style="background: #666; margin-top: 20px;" onclick="showPage('home')">Back to Home</button>
+        </div>
+    </div>
+        
         <div id="page-driver" class="hidden">
             <div class="glass-card" id="driver-card">
                 <button class="btn-back" id="driver-back-btn" onclick="exitDriverMode()">← Back</button>
