@@ -1,0 +1,644 @@
+ * {
+     box-sizing: border-box;
+     font-family: 'Segoe UI', sans-serif;
+     transition: 0.3s;
+ }
+
+ body {
+     margin: 0;
+     background-color: #4a5585;
+     min-height: 100vh;
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     justify-content: center;
+ }
+
+ /* This ensures pages don't stack on top of each other */
+ .page-container {
+     width: 100%;
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+ }
+
+ /* Hard-fix for the hidden class */
+ .hidden {
+     display: none !important;
+     visibility: hidden !important;
+     height: 0 !important;
+     overflow: hidden !important;
+ }
+
+ /* Ensure the navbar stays fixed and doesn't move */
+ nav {
+     position: sticky;
+     top: 0;
+     z-index: 1000;
+     width: 100%;
+     background: white;
+     padding: 10px 40px;
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+ }
+
+ /* AUTH CARD STYLES (Sign Up & Login) */
+ .auth-card {
+     background: white;
+     padding: 40px;
+     border-radius: 40px;
+     width: 90%;
+     max-width: 450px;
+     text-align: center;
+     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+ }
+
+ h2 {
+     font-size: 28px;
+     color: #333;
+     margin-bottom: 30px;
+ }
+
+ .input-group {
+     text-align: left;
+     margin-bottom: 15px;
+ }
+
+ label {
+     display: block;
+     font-weight: 600;
+     margin-bottom: 8px;
+     color: #444;
+     font-size: 14px;
+ }
+
+ input {
+     width: 100%;
+     padding: 12px 15px;
+     border: 1px solid #ddd;
+     border-radius: 12px;
+     outline: none;
+ }
+
+ .btn-primary {
+     width: 100%;
+     background-color: #4e69e2;
+     color: white;
+     border: none;
+     padding: 14px;
+     border-radius: 12px;
+     font-size: 16px;
+     font-weight: bold;
+     cursor: pointer;
+     margin: 20px 0;
+ }
+
+ .divider {
+     display: flex;
+     align-items: center;
+     margin: 20px 0;
+     color: #aaa;
+     font-size: 12px;
+ }
+
+ .divider::before,
+ .divider::after {
+     content: '';
+     flex: 1;
+     border-bottom: 1px solid #eee;
+ }
+
+ .divider span {
+     padding: 0 10px;
+ }
+
+ .social-container {
+     display: flex;
+     gap: 10px;
+     margin-bottom: 20px;
+ }
+
+ .btn-social {
+     flex: 1;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 8px;
+     border: 1px solid #ddd;
+     border-radius: 25px;
+     padding: 10px;
+     background: white;
+     cursor: pointer;
+     font-size: 12px;
+ }
+
+ .footer-text span {
+     color: #4e69e2;
+     cursor: pointer;
+     font-weight: bold;
+ }
+
+ /* HOME PAGE STYLES */
+ #home-page {
+     width: 100%;
+     min-height: 100vh;
+     /* Changed from height: 100vh */
+     background-color: #b8c1ec;
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     justify-content: flex-start;
+ }
+
+ /* Sidebar Styles */
+ .side-menu {
+     position: fixed;
+     top: 0;
+     left: -300px;
+     /* Hidden by default */
+     width: 280px;
+     height: 100%;
+     background: white;
+     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+     z-index: 2000;
+     transition: 0.3s ease;
+     padding: 20px;
+ }
+
+ .side-menu.active {
+     left: 0;
+     /* Slide in */
+ }
+
+ .overlay {
+     position: fixed;
+     top: 0;
+     left: 0;
+     width: 100%;
+     height: 100%;
+     background: rgba(0, 0, 0, 0.5);
+     z-index: 1999;
+ }
+
+ .side-menu-header {
+     display: flex;
+     align-items: center;
+     gap: 15px;
+     margin-bottom: 20px;
+     position: relative;
+ }
+
+ .profile-circle.large {
+     width: 60px;
+     height: 60px;
+ }
+
+ .side-user-info h4 {
+     margin: 0;
+     font-size: 18px;
+ }
+
+ .side-user-info p {
+     margin: 0;
+     color: #666;
+     font-size: 14px;
+ }
+
+ .side-menu-stats {
+     display: flex;
+     gap: 15px;
+     font-size: 14px;
+     padding: 15px 0;
+     border-bottom: 1px solid #eee;
+ }
+
+ .side-links {
+     margin-top: 20px;
+ }
+
+ .side-item {
+     display: flex;
+     align-items: center;
+     gap: 15px;
+     padding: 12px;
+     border-radius: 10px;
+     cursor: pointer;
+     font-weight: 500;
+ }
+
+ .side-item:hover {
+     background: #f0f2f5;
+ }
+
+ .close-btn {
+     position: absolute;
+     right: 0;
+     top: 0;
+     background: none;
+     border: none;
+     font-size: 24px;
+     cursor: pointer;
+ }
+
+ /* New Profile Section on the Left */
+ .profile-section {
+     display: flex;
+     align-items: center;
+     gap: 12px;
+ }
+
+ .profile-circle {
+     width: 35px;
+     height: 35px;
+     background: #4e69e2;
+     border-radius: 50%;
+     overflow: hidden;
+     border: 1px solid #ddd;
+ }
+
+ .profile-circle img {
+     width: 100%;
+     height: 100%;
+     object-fit: cover;
+ }
+
+ /* Container for the profile card to ensure perfect centering */
+ #page-profile {
+     display: flex;
+     justify-content: center;
+     align-items: center;
+     width: 100%;
+ }
+
+ /* Enhanced Glassmorphism for the card */
+ #page-profile .glass-card {
+     background: rgba(255, 255, 255, 0.5);
+     /* Lighter glass effect */
+     backdrop-filter: blur(15px);
+     border: 1px solid rgba(255, 255, 255, 0.4);
+     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05);
+     text-align: left;
+     padding: 35px;
+     width: 380px;
+     /* Slimmer, more mobile-app feel */
+ }
+
+ /* Typography Improvements */
+ .info-label {
+     font-size: 11px;
+     text-transform: uppercase;
+     letter-spacing: 1.5px;
+     color: #888;
+     margin-bottom: 5px;
+     font-weight: 700;
+ }
+
+ .info-value {
+     font-size: 18px;
+     font-weight: 600;
+     color: #222;
+     margin-bottom: 25px;
+ }
+
+ /* Custom Styled Dropdown */
+ .profile-select {
+     width: 100%;
+     padding: 14px 18px;
+     border-radius: 14px;
+     border: 1.5px solid #4e69e266;
+     /* Subtle blue tint border */
+     background: white;
+     font-size: 16px;
+     font-weight: 500;
+     color: #333;
+     cursor: pointer;
+     appearance: none;
+     /* Removes default arrow */
+     background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path fill="%234e69e2" d="M5 7l5 5 5-5z"/></svg>');
+     background-repeat: no-repeat;
+     background-position: right 15px center;
+     box-shadow: 0 4px 12px rgba(78, 105, 226, 0.1);
+     transition: 0.2s ease;
+ }
+
+ .profile-select:hover {
+     border-color: #4e69e2;
+     transform: translateY(-1px);
+ }
+
+ .profile-select:focus {
+     outline: none;
+     border-color: #4e69e2;
+ }
+
+ /* Keeping your original link styles */
+ .nav-links {
+     display: flex;
+     gap: 20px;
+     font-size: 13px;
+ }
+
+ .nav-links a {
+     text-decoration: none;
+     color: #666;
+     padding-bottom: 5px;
+     border-bottom: 2px solid transparent;
+     /* Always have a border, but make it invisible */
+     transition: border-color 0.3s ease, color 0.3s ease;
+     /* Smooth transition */
+ }
+
+ .nav-links a.active {
+     color: #000 !important;
+     border-bottom: 2px solid #ff6b6b !important;
+     font-weight: bold !important;
+ }
+
+ /* Logout Button styling */
+ .btn-logout-small {
+     background: #222;
+     color: white;
+     border: none;
+     padding: 6px 15px;
+     border-radius: 5px;
+     cursor: pointer;
+     font-size: 12px;
+ }
+
+ .glass-card {
+     background: rgba(255, 255, 255, 0.4);
+     backdrop-filter: blur(10px);
+     border-radius: 30px;
+     padding: 30px;
+     width: 95%;
+     /* Increased from 90% */
+     max-width: 500px;
+     /* Widened to prevent checkbox stacking */
+     margin: 30px 0;
+     text-align: center;
+     border: 1px solid rgba(255, 255, 255, 0.3);
+     flex-shrink: 0;
+ }
+
+ .btn-back {
+     background: #f0f0f0;
+     border: none;
+     color: #4a5585;
+     padding: 5px 15px;
+     border-radius: 10px;
+     cursor: pointer;
+     font-weight: bold;
+     font-size: 13px;
+     display: inline-flex;
+     align-items: center;
+     margin-bottom: 20px;
+     transition: 0.2s;
+ }
+
+ .btn-back:hover {
+     background: #e0e0e0;
+     transform: translateX(-3px);
+ }
+
+ .checkbox-group {
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 10px;
+     margin: 20px 0;
+     font-size: 14px;
+     white-space: nowrap;
+
+ }
+
+ .checkbox-group input {
+     width: auto;
+     /* Overrides the 100% width from general input style */
+     margin: 0;
+ }
+
+ .neumorphic-btn {
+     background: #eef1ff;
+     width: 280px;
+     /* Use a fixed pixel width so it NEVER changes size */
+     margin: 10px auto;
+     padding: 12px 20px;
+     border-radius: 50px;
+     display: flex;
+     align-items: center;
+     gap: 15px;
+     color: #777;
+     box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.05), inset -4px -4px 8px #fff;
+     cursor: pointer;
+     flex-shrink: 0;
+ }
+
+ .neumorphic-btn:active {
+     transform: scale(0.97);
+     box-shadow:
+         inset 2px 2px 5px rgba(0, 0, 0, 0.08),
+         inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+ }
+
+ .neumorphic-btn:hover {
+     box-shadow:
+         0 0 0 2px rgba(78, 105, 226, 0.15),
+         inset 4px 4px 8px rgba(0, 0, 0, 0.05),
+         inset -4px -4px 8px #fff;
+ }
+
+ .neumorphic-btn:focus {
+     outline: none;
+     box-shadow:
+         0 0 0 3px rgba(78, 105, 226, 0.25),
+         inset 4px 4px 8px rgba(0, 0, 0, 0.05),
+         inset -4px -4px 8px #fff;
+ }
+
+ #page-home {
+     width: 100%;
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     justify-content: flex-start;
+ }
+
+ /* This stops the "squashing" by ensuring the elements don't shrink */
+ .glass-card,
+ .dashboard {
+     flex-shrink: 0;
+ }
+
+ .dashboard {
+     background-color: #2b3467;
+     width: 100%;
+     max-width: 850px;
+     border-radius: 30px 30px 0 0;
+     padding: 40px;
+     color: white;
+     flex-grow: 1;
+     background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 2px, transparent 2px, transparent 40px);
+ }
+
+ .trip-row {
+     display: flex;
+     align-items: center;
+     gap: 20px;
+     padding: 15px 0;
+     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+ }
+
+ .car-circle {
+     width: 45px;
+     height: 45px;
+     background: white;
+     border-radius: 50%;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+ }
+
+ .car-img {
+     width: 30px;
+ }
+
+ .btn-primary {
+     cursor: pointer;
+     transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s;
+ }
+
+ .btn-primary:hover {
+     background-color: #3f58d6;
+     box-shadow: 0 6px 15px rgba(78, 105, 226, 0.4);
+     transform: translateY(-1px);
+ }
+
+ .btn-primary:active {
+     transform: translateY(1px) scale(0.98);
+     box-shadow: 0 3px 8px rgba(78, 105, 226, 0.3);
+ }
+
+ .btn-primary:disabled {
+     cursor: not-allowed;
+     opacity: 0.7;
+ }
+
+ [id^="page-"] {
+     animation: fadeIn 0.2s ease;
+ }
+
+ #branch-selection-overlay {
+     position: fixed;
+     top: 0;
+     left: 0;
+     width: 100%;
+     height: 100%;
+     background: rgba(18, 20, 32, 0.8);
+     /* Dark futuristic tint */
+     backdrop-filter: blur(20px);
+     /* Deep blur */
+     z-index: 3000;
+     display: flex;
+     justify-content: center;
+     align-items: center;
+     animation: fadeIn 0.3s ease;
+ }
+
+ .branch-container {
+     text-align: center;
+     color: white;
+ }
+
+ /* Brighter title for better visibility */
+ .futuristic-title {
+     color: rgba(255, 255, 255, 0.9);
+     font-size: 32px;
+     font-weight: 800;
+     margin-bottom: 40px;
+     text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+ }
+
+ /* Remove the line styles */
+ .neon-line-left,
+ .neon-line-right {
+     display: none;
+ }
+
+ /* Ensure the options are spaced well without the lines */
+ .branch-paths {
+     display: flex;
+     justify-content: center;
+     gap: 120px;
+     /* Wider gap since lines are gone */
+     margin-top: 30px;
+ }
+
+ .branch-option span {
+     display: block;
+     font-size: 20px;
+     font-weight: 600;
+     margin-top: 10px;
+ }
+
+ .branch-option small {
+     color: rgba(255, 255, 255, 0.6);
+ }
+
+ .branch-option {
+     cursor: pointer;
+     transition: 0.4s;
+ }
+
+ .branch-option:hover {
+     transform: scale(1.1);
+     filter: drop-shadow(0 0 15px #4e69e2);
+     /* Neon glow */
+ }
+
+ .branch-icon {
+     font-size: 50px;
+     margin-bottom: 15px;
+ }
+
+ .btn-cancel-branch {
+     margin-top: 60px;
+     background: none;
+     border: 1px solid rgba(255, 255, 255, 0.3);
+     color: white;
+     padding: 10px 30px;
+     border-radius: 30px;
+     cursor: pointer;
+ }
+
+ #page-driver-route-share .input-group input {
+     background: rgba(255, 255, 255, 0.6);
+     border: 1px solid rgba(78, 105, 226, 0.2);
+     font-weight: 500;
+ }
+
+ #page-driver-route-share .input-group input:focus {
+     border-color: #4e69e2;
+     background: white;
+     box-shadow: 0 0 10px rgba(78, 105, 226, 0.1);
+ }
+
+ /* Specific styling for the Fare input to make it pop */
+ #rs-fare {
+     font-size: 18px;
+     font-weight: bold;
+     color: #333;
+ }
+
+ @keyframes fadeIn {
+     from {
+         opacity: 0.6;
+         transform: translateY(5px);
+     }
+
+     to {
+         opacity: 1;
+         transform: translateY(0);
+     }
+ }
