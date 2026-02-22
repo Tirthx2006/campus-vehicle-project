@@ -148,7 +148,7 @@ function signupUser() {
     }
 
     // Now send all 4 fields to the backend
-    fetch("http://localhost:5000/signup", {
+    fetch("https://campus-vehicle-project.onrender.com/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password, gender })
@@ -179,7 +179,7 @@ function loginUser() {
         return;
     }
 
-    fetch("http://localhost:5000/login", {
+    fetch("https://campus-vehicle-project.onrender.com/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
