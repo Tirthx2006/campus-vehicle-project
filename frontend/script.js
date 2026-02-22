@@ -1,3 +1,12 @@
+// ✅ Auto-detect if we are running locally or on Render
+const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const API_BASE_URL = isLocal 
+    ? "http://localhost:5000" 
+    : "https://campus-vehicle-project.onrender.com";
+
+console.log(`Connected to: ${isLocal ? "LOCAL BACKEND" : "CLOUD BACKEND"}`);
+
+
 const signup = document.getElementById('signup-page');
 const login = document.getElementById('login-page');
 const home = document.getElementById('home-page');
@@ -148,7 +157,7 @@ function signupUser() {
     }
 
     // Now send all 4 fields to the backend
-    fetch("https://campus-vehicle-project.onrender.com/signup", {
+    fetch(`${API_BASE_URL}/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password, gender })
@@ -179,7 +188,7 @@ function loginUser() {
         return;
     }
 
-    fetch("https://campus-vehicle-project.onrender.com/login", {
+    fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
@@ -205,7 +214,7 @@ async function updateGenderInDB(newGender) {
 
     try {
         // 1. Update the backend
-        const response = await fetch("https://campus-vehicle-project.onrender.com/update-profile", {
+        const response = await fetch(`${API_BASE_URL}/update-profile`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -292,7 +301,7 @@ function publishRoute() {
         return;
     }
 
-    fetch("https://campus-vehicle-project.onrender.com/publish-route", {
+    fetch(`${API_BASE_URL}/publish-route`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(routeData)
@@ -300,20 +309,60 @@ function publishRoute() {
         .then(res => res.json())
         .then(data => {
             alert("🚀 Trajectory Published!");
-            isMissionActive = true; // 🔒 Lock the navigation
-
+            isMissionActive = true; 
+    
             document.getElementById("cc-destination").innerText = document.getElementById("rs-destination").value;
             document.getElementById("cc-seats").innerText = `0/${document.getElementById("rs-seats").value}`;
             document.getElementById("cc-fare").innerText = `$${document.getElementById("rs-fare").value}`;
-
+    
             showPage('driver-command-center');
+            startRequestPoller(); // 🔔 Start checking for passengers immediately
         })
+}
+
+// ✅ Add the Passenger Status Poller
+function startPassengerStatusPoller(rideId) {
+    const userData = JSON.parse(localStorage.getItem("user"));
+    const poller = setInterval(() => {
+        fetch(`${API_BASE_URL}/get-my-request-status?rideId=${rideId}&email=${userData.email}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'accepted') {
+                clearInterval(poller);
+                const orb = document.getElementById("ps-status-orb");
+                if(orb) orb.className = "pulse-orb accepted";
+                document.getElementById("ps-status-text").innerText = "Mission Confirmed! Meet your Driver.";
+                alert("🤝 Handshake Complete! You are now linked to the trajectory.");
+            }
+        });
+    }, 5000);
+}
+
+// ✅ Update requestJoinRide to start the poller
+function requestJoinRide(rideId) {
+    const userData = JSON.parse(localStorage.getItem("user"));
+
+    fetch(`${API_BASE_URL}/request-ride`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            rideId: rideId,
+            passengerEmail: userData.email,
+            passengerName: userData.name
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert("✉️ Request sent! Waiting for driver to 'Link' with you.");
+        showPage('passenger-mission-status'); // Navigate to the status page
+        startPassengerStatusPoller(rideId); // 🕵️‍♂️ Start watching for driver's approval
+    });
 }
 
 function acceptPassenger(passengerEmail) {
     const userData = JSON.parse(localStorage.getItem("user"));
 
-    fetch("https://campus-vehicle-project.onrender.com/accept-passenger", {
+    fetch(`${API_BASE_URL}/accept-passenger`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -330,6 +379,7 @@ function acceptPassenger(passengerEmail) {
         .catch(err => console.error("Link Error:", err));
 }
 
+
 function submitDriverRegistration() {
     const details = {
         license: document.getElementById("reg-license").value,
@@ -345,7 +395,7 @@ function submitDriverRegistration() {
 
     const userData = JSON.parse(localStorage.getItem("user"));
 
-    fetch("https://campus-vehicle-project.onrender.com/update-driver-status", {
+    fetch(`${API_BASE_URL}/update-driver-status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -372,7 +422,7 @@ function searchActiveRoutes() {
         return;
     }
 
-    fetch(`https://campus-vehicle-project.onrender.com/search-routes?destination=${query}`)
+    fetch(`${API_BASE_URL}/search-routes?destination=${query}`)
         .then(res => res.json())
         .then(rides => {
             if (rides.length === 0) {
@@ -393,25 +443,6 @@ function searchActiveRoutes() {
         });
 }
 
-function requestJoinRide(rideId) {
-    const userData = JSON.parse(localStorage.getItem("user"));
-
-    fetch("https://campus-vehicle-project.onrender.com/request-ride", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            rideId: rideId,
-            passengerEmail: userData.email,
-            passengerName: userData.name
-        })
-    })
-        .then(res => res.json())
-        .then(data => {
-            alert("✉️ Request sent! Waiting for driver to 'Link' with you.");
-            // We can show a 'Pending' status on the button now
-        })
-        .catch(err => alert("Error sending request."));
-}
 
 function toggleShift() {
     const statusDot = document.getElementById("driver-status-indicator");
@@ -470,7 +501,7 @@ function startRequestPoller() {
             return;
         }
 
-        fetch(`https://campus-vehicle-project.onrender.com/get-ride-requests?driverEmail=${userData.email}`)
+        fetch(`${API_BASE_URL}/get-ride-requests?driverEmail=${userData.email}`)
             .then(res => res.json())
             .then(requests => {
                 const container = document.getElementById("cc-requests-container");
