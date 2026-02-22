@@ -12,7 +12,7 @@ app.use(express.json());
 
 // MongoDB
 mongoose.connect(
-  "mongodb+srv://admin:admincp@cpcluster.udgcetk.mongodb.net/CP"
+  "process.env.MONGO_URI"
 )
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.log(err));
