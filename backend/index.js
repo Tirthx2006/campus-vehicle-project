@@ -6,6 +6,10 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const http = require("http");
 const { Server } = require("socket.io");
+const rateLimit = require("express-rate-limit");
+
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: "Too many attempts from this IP, please try again later." });
+const requestLimiter = rateLimit({ windowMs: 1 * 60 * 1000, max: 5, message: "Too many requests from this IP, please try again." });
 
 console.log("=== THE BACKEND FILE IS RUNNING ===");
 console.log("DEBUG: Testing MONGO_URI value ->", process.env.MONGO_URI ? "Found ✅" : "NOT FOUND ❌");
@@ -144,6 +148,7 @@ const QuickRequestSchema = new mongoose.Schema({
   driverName: String,
   pickup: String,
   drop: String,
+  fare: { type: Number, default: 0 },
   status: { type: String, default: "pending" },
   createdAt: { type: Date, default: Date.now }
 });
@@ -206,7 +211,7 @@ const emergencyAuth = (req, res, next) => {
 // ─────────────────────────────────────────────────────────
 
 // SIGNUP
-app.post("/signup", async (req, res) => {
+app.post("/signup", authLimiter, async (req, res) => {
   const { name, email, password, gender } = req.body;
 
   if (!name || !email || !password || !gender) {
@@ -234,7 +239,7 @@ app.post("/signup", async (req, res) => {
 
 // LOGIN — issues a JWT on success.
 // Frontend: store the returned `token` and send it on every subsequent request.
-app.post("/login", async (req, res) => {
+app.post("/login", authLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -412,6 +417,10 @@ app.post("/publish-route", auth, async (req, res) => {
   const { email: driverEmail, name: driverName } = req.user;
   const { from, destination, destLat, destLng, fromLat, fromLng, seats, time, fare } = req.body;
 
+  if (!destination || parseInt(seats) <= 0 || parseFloat(fare) < 0) {
+    return res.status(400).json({ message: "Invalid route details. Seats must be > 0 and fare >= 0." });
+  }
+
   try {
     const driverUser = await User.findOne({ email: driverEmail });
     const vehicleModel = driverUser?.driverDetails?.vehicleModel || "Unknown";
@@ -463,7 +472,7 @@ app.post("/cancel-route", auth, async (req, res) => {
           io.to(r.email).emit("ride_cancelled", { message: "The driver has ended the trip." });
         });
 
-      await Ride.deleteMany({ driverEmail, status: { $in: ["active", "in_progress", "payment_pending"] } });
+      await Ride.updateMany({ driverEmail, status: { $in: ["active", "in_progress", "payment_pending"] } }, { status: "cancelled" });
     }
 
     res.json({ message: "Mission aborted and deleted successfully" });
@@ -487,7 +496,7 @@ app.post("/complete-route", auth, async (req, res) => {
           io.to(r.email).emit("ride_completed", { message: "The driver has completed the journey." });
         });
 
-      await Ride.deleteMany({ driverEmail, status: { $in: ["active", "in_progress", "payment_pending"] } });
+      await Ride.updateMany({ driverEmail, status: { $in: ["active", "in_progress", "payment_pending"] } }, { status: "completed" });
     }
 
     res.json({ message: "Journey completed and data cleared" });
@@ -622,7 +631,7 @@ app.post("/request-quick-payment", auth, async (req, res) => {
     );
     if (!quickReq) return res.status(404).json({ message: "Request not found" });
 
-    io.to(quickReq.passengerEmail).emit("payment_requested", { fare: 10, type: "quick_drop", upiId, qrPhoto });
+    io.to(quickReq.passengerEmail).emit("payment_requested", { fare: quickReq.fare || 0, type: "quick_drop", upiId, qrPhoto });
     res.json({ message: "Payment requested" });
   } catch (err) {
     res.status(500).json({ message: "Error requesting payment" });
@@ -667,7 +676,7 @@ app.post("/emergency-cleanup", emergencyAuth, async (req, res) => {
         });
     }
 
-    await Ride.deleteMany({ driverEmail, status: { $in: ["active", "in_progress", "payment_pending"] } });
+    await Ride.updateMany({ driverEmail, status: { $in: ["active", "in_progress", "payment_pending"] } }, { status: "cancelled" });
     await User.findOneAndUpdate({ email: driverEmail }, { isOnline: false });
 
     res.status(200).send("Cleanup successful");
@@ -679,7 +688,7 @@ app.post("/emergency-cleanup", emergencyAuth, async (req, res) => {
 // REQUEST RIDE (passenger → driver)
 // Emits new_request to the driver's socket room immediately.
 // Replaces the need for the driver to poll /get-ride-requests.
-app.post("/request-ride", auth, async (req, res) => {
+app.post("/request-ride", auth, requestLimiter, async (req, res) => {
   const { email: passengerEmail, name: passengerName } = req.user;
   const { rideId, pickupLocation } = req.body;
 
@@ -714,42 +723,50 @@ app.post("/accept-passenger", auth, async (req, res) => {
   const { passengerEmail } = req.body;
 
   try {
-    const ride = await Ride.findOne({ driverEmail, status: { $in: ["active", "in_progress"] } });
-
-    if (!ride) return res.status(404).json({ message: "No active trajectory found" });
-    if (ride.seats <= 0) return res.status(400).json({ message: "No seats available" });
-
-    const request = ride.requests.find(r => r.email === passengerEmail);
-
-    if (request && request.status === "pending") {
-      request.status = "accepted";
-      ride.seats -= 1;
-      await ride.save();
-
-      // Push to the passenger instantly — include departure coords so passenger
-      // map can draw the full A→B route line, not just a destination dot.
-      io.to(passengerEmail).emit("ride_accepted", {
-        driverName,
+    // ATOMIC UPDATE: Prevents race condition if two drivers/requests hit exactly simultaneously
+    const ride = await Ride.findOneAndUpdate(
+      {
         driverEmail,
-        vehicleModel: ride.vehicleModel,
-        vehicleNumber: ride.vehicleNumber,
-        destination: ride.destination,
-        destLat: ride.destLat,
-        destLng: ride.destLng,
-        fromLat: ride.fromLat,
-        fromLng: ride.fromLng,
-        message: "Your ride has been accepted!"
-      });
+        status: { $in: ["active", "in_progress"] },
+        seats: { $gt: 0 },
+        "requests.email": passengerEmail,
+        "requests.status": "pending"
+      },
+      {
+        $inc: { seats: -1 },
+        $set: { "requests.$.status": "accepted" }
+      },
+      { new: true }
+    );
 
-      const acceptedCount = ride.requests.filter(r => r.status === "accepted").length;
-      res.json({
-        message: "Linked",
-        bookedSeats: acceptedCount,
-        totalSeats: ride.seats + acceptedCount
-      });
-    } else {
-      res.status(400).json({ message: "Request already handled or not found" });
+    if (!ride) {
+      const existingRide = await Ride.findOne({ driverEmail, status: { $in: ["active", "in_progress"] } });
+      if (!existingRide) return res.status(404).json({ message: "No active trajectory found" });
+      if (existingRide.seats <= 0) return res.status(400).json({ message: "No seats available" });
+      return res.status(400).json({ message: "Request already handled or not found" });
     }
+
+    // Push to the passenger instantly — include departure coords so passenger
+    // map can draw the full A→B route line, not just a destination dot.
+    io.to(passengerEmail).emit("ride_accepted", {
+      driverName,
+      driverEmail,
+      vehicleModel: ride.vehicleModel,
+      vehicleNumber: ride.vehicleNumber,
+      destination: ride.destination,
+      destLat: ride.destLat,
+      destLng: ride.destLng,
+      fromLat: ride.fromLat,
+      fromLng: ride.fromLng,
+      message: "Your ride has been accepted!"
+    });
+
+    const acceptedCount = ride.requests.filter(r => r.status === "accepted").length;
+    res.json({
+      message: "Linked",
+      bookedSeats: acceptedCount,
+      totalSeats: ride.seats + acceptedCount
+    });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
@@ -843,12 +860,17 @@ app.post("/request-quick-drop", auth, async (req, res) => {
 // Emits quick_drop_accepted to passenger's socket room.
 app.post("/accept-quick-drop", auth, async (req, res) => {
   const { email: driverEmail, name: driverName } = req.user;
-  const { requestId } = req.body;
+  const { requestId, fare } = req.body;
+
+  let fareValue = parseFloat(fare);
+  if (isNaN(fareValue) || fareValue < 0 || fareValue > 50) {
+    return res.status(400).json({ message: "Fare must be between ₹0 and ₹50" });
+  }
 
   try {
     const quickReq = await QuickRequest.findByIdAndUpdate(
       requestId,
-      { status: "accepted" },
+      { status: "accepted", fare: fareValue },
       { new: true }
     );
 
@@ -940,7 +962,7 @@ app.get("/my-ride-status", auth, async (req, res) => {
         driverName: quickReq.driverName || (driver ? driver.name : "Driver"),
         driverEmail: quickReq.driverEmail,
         destination: (quickReq.pickup || "Campus") + " → " + (quickReq.drop || "Campus"),
-        fare: 10,
+        fare: quickReq.fare || 0,
         upiId: driver?.driverDetails?.upiId,
         qrPhoto: driver?.driverDetails?.qrPhoto
       });
@@ -1044,31 +1066,31 @@ app.get("/my-trips", auth, async (req, res) => {
 
     // Quick Drop - Driver
     const qdDriver = await QuickRequest.find({ driverEmail: email })
-      .select("pickup drop createdAt status passengerName")
+      .select("pickup drop createdAt status passengerName fare")
       .lean();
 
     // Quick Drop - Passenger
     const qdPassenger = await QuickRequest.find({ passengerEmail: email })
-      .select("pickup drop createdAt status driverName")
+      .select("pickup drop createdAt status driverName fare")
       .lean();
 
     const driverFormatted = driverRides.map(r => ({ ...r, role: "driver" }));
     const passengerFormatted = passengerRides.map(r => ({ ...r, role: "passenger" }));
-    
+
     // Format Quick Drops to match Route Share UI expectations
     const qdDriverFormatted = qdDriver.map(r => ({
       ...r,
       role: "driver",
       destination: (r.pickup || "Campus") + " → " + (r.drop || "Campus"),
-      fare: 10,
+      fare: r.fare || 0,
       time: "Quick Drop"
     }));
-    
+
     const qdPassengerFormatted = qdPassenger.map(r => ({
       ...r,
       role: "passenger",
       destination: (r.pickup || "Campus") + " → " + (r.drop || "Campus"),
-      fare: 10,
+      fare: QUICK_DROP_FARE,
       time: "Quick Drop"
     }));
 

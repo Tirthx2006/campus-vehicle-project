@@ -268,7 +268,7 @@ async function showDestinationPreview(place) {
     // Starting-point marker (green) + destination marker (red)
     L.circleMarker(originCoords, { radius: 8, color: '#2ecc71', fillColor: '#2ecc71', fillOpacity: 1, weight: 2 })
         .bindTooltip('Start', { permanent: false }).addTo(map);
-    L.circleMarker(destCoords,   { radius: 8, color: '#f44336', fillColor: '#f44336', fillOpacity: 1, weight: 2 })
+    L.circleMarker(destCoords, { radius: 8, color: '#f44336', fillColor: '#f44336', fillOpacity: 1, weight: 2 })
         .bindTooltip('Destination', { permanent: false }).addTo(map);
 
     mapInstances["rs-map-container"] = { map };
@@ -501,6 +501,7 @@ window.onload = function () {
             showPage('driver-command-center');
             socket.emit("join", userData.email);
             listenForPassengerRequests();
+            startGPSBroadcasting(); // Ensure GPS tracking resumes on refresh!
 
             // Restore full Command Center state from the server
             authFetch(`${API_BASE_URL}/get-active-mission`)
@@ -1090,6 +1091,13 @@ function listenForQuickRequests() {
                 <strong>From:</strong> ${data.pickup}<br>
                 <strong>To:</strong> ${data.drop}
             </div>
+            <div style="margin-top:10px;background:#f9f9f9;padding:8px;border-radius:8px;">
+                <label style="font-size:12px;color:#666;font-weight:bold;">Set Fare (Max ₹50):</label>
+                <div style="display:flex;align-items:center;margin-top:4px;">
+                    <span style="font-weight:bold;color:#4e69e2;margin-right:6px;">₹</span>
+                    <input type="number" id="quick-fare-${data.requestId}" value="30" min="0" max="50" style="flex:1;padding:6px;border-radius:6px;border:1px solid #ccc;font-size:14px;">
+                </div>
+            </div>
             <div style="display:flex;gap:10px;margin-top:10px;">
                 <button class="btn-primary"
                         style="background:#2ecc71;flex:1;padding:10px;"
@@ -1273,7 +1281,7 @@ function renderRequestList(requests) {
         const borderColor = req.status === 'paid' ? '#2ecc71' : req.status === 'arrived' ? '#f39c12' : req.status === 'accepted' ? '#4e69e2' : '#f39c12';
         const bgColor = req.status === 'paid' ? '#f0fdf4' : req.status === 'arrived' ? '#fffbf0' : '#fff';
         const statusColor = req.status === 'paid' ? '#2ecc71' : req.status === 'arrived' ? '#f39c12' : req.status === 'accepted' ? '#4e69e2' : '#f39c12';
-        
+
         return `
         <div class="glass-card" data-email="${req.email}" style="margin:12px 0;padding:16px;display:flex;justify-content:space-between;align-items:center;border-left:4px solid ${borderColor}; background: ${bgColor}; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border-radius:12px;">
             <div style="text-align:left;flex:1;">
@@ -1282,19 +1290,19 @@ function renderRequestList(requests) {
                 <div style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.5px;font-weight:${req.status === 'pending' ? 'bold' : 'normal'};">Status: <span style="color:${statusColor}">${req.status}</span></div>
             </div>
             ${req.status === 'pending'
-            ? `<div style="display:flex;gap:10px;">
+                ? `<div style="display:flex;gap:10px;">
                      <button class="btn-primary" style="width:auto;padding:8px 16px;background:#2ecc71;font-size:13px;margin:0;border-radius:10px;box-shadow:0 4px 10px rgba(46,204,113,0.3);" onclick="acceptPassenger('${req.email}')">✓ Link</button>
                      <button class="btn-primary" style="width:auto;padding:8px 16px;background:#f44336;font-size:13px;margin:0;border-radius:10px;box-shadow:0 4px 10px rgba(244,67,54,0.3);" onclick="rejectPassenger('${req.email}')">✕ Reject</button>
                    </div>`
-            : req.status === 'paid'
-                ? '<span style="font-size:14px;color:#2ecc71;font-weight:800;background:#d5f5e3;padding:6px 12px;border-radius:8px;">✅ Settled</span>'
-            : req.status === 'arrived'
-                ? '<span style="font-size:14px;color:#f39c12;font-weight:800;background:#fff3cd;padding:6px 12px;border-radius:8px;">🚗 Arrived</span>'
-                : `<div style="display:flex;gap:10px;align-items:center;">
+                : req.status === 'paid'
+                    ? '<span style="font-size:14px;color:#2ecc71;font-weight:800;background:#d5f5e3;padding:6px 12px;border-radius:8px;">✅ Settled</span>'
+                    : req.status === 'arrived'
+                        ? '<span style="font-size:14px;color:#f39c12;font-weight:800;background:#fff3cd;padding:6px 12px;border-radius:8px;">🚗 Arrived</span>'
+                        : `<div style="display:flex;gap:10px;align-items:center;">
                      <span style="font-size:14px;color:#4e69e2;font-weight:800;background:#eef1ff;padding:6px 12px;border-radius:8px;">✓ Linked</span>
                      <button class="btn-primary" style="width:auto;padding:6px 16px;background:#f39c12;font-size:12px;margin:0;border-radius:8px;" onclick="arrivePassenger('${req.email}', this)">📍 Arrive</button>
                    </div>`
-        }
+            }
         </div>
     `}).join('');
 }
@@ -1329,10 +1337,12 @@ async function loadMyActivity() {
             const date = new Date(trip.createdAt).toLocaleDateString("en-IN", {
                 day: "numeric", month: "short", year: "numeric"
             });
+            const statusClass = (trip.status || "completed").toLowerCase();
             return `
             <div class="trip-card ${isDriver ? 'driver-trip' : ''}">
                 <div class="tc-header">
                     <span class="tc-dest">→ ${trip.destination}</span>
+                    <span class="tc-status-badge ${statusClass}">${trip.status || 'Success'}</span>
                     <span class="tc-badge ${isDriver ? 'driver' : 'passenger'}">${isDriver ? 'Driver' : 'Passenger'}</span>
                 </div>
                 <div class="tc-meta">${date} · ₹${trip.fare} per seat · ${trip.time || 'Time not set'}</div>
@@ -1600,7 +1610,8 @@ function publishRoute() {
                 clearTimeout(fallbackTimer);
                 finalizePublishMap(gpsFailOrigin);
             }
-        });
+        })
+        .catch(() => showNotification("Failed to publish route. Check details and try again.", "error"));
 }
 
 function cancelTrajectory() {
@@ -2178,6 +2189,14 @@ function startQuickRequestScanner() {
 }
 
 function acceptQuickDrop(requestId, buttonEl) {
+    const fareInput = document.getElementById(`quick-fare-${requestId}`);
+    const fare = fareInput ? parseFloat(fareInput.value) : 30;
+
+    if (isNaN(fare) || fare < 0 || fare > 50) {
+        showNotification("Fare must be between ₹0 and ₹50", "error");
+        return;
+    }
+
     if (buttonEl) {
         buttonEl.disabled = true;
         buttonEl.innerText = "Accepting...";
@@ -2186,7 +2205,7 @@ function acceptQuickDrop(requestId, buttonEl) {
 
     authFetch(`${API_BASE_URL}/accept-quick-drop`, {
         method: "POST",
-        body: JSON.stringify({ requestId })
+        body: JSON.stringify({ requestId, fare })
     })
         .then(res => res.json())
         .then(() => {
