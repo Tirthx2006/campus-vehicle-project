@@ -14,13 +14,15 @@
 - [x] Quick Drop driverName stored and retained (Bug 6)
 - [x] `/accept-passenger` and `/reject-passenger` work on in_progress rides (Bug 7)
 - [x] `my-trips` shows paid passenger rides and all Quick Drop rides (Bug 8)
+- [x] Driver command center map correctly moves to pickup/journey phases (Bug 9)
+- [x] Passenger `/my-ride-status` bootup returns missing fare, passenger correctly routes to payment page on reload instead of sticking to pickup view (Bug 10)
 
 ## Phases
 
 ### Phase 1: Critical Ride Lifecycle Bug Fixes
 **Status**: ✅ Complete
-**Objective**: Fix all 8 critical bugs blocking driver phase navigation, map routing, passenger session restore, and trip history.
-**Files changed**: `backend/index.js`, `frontend/script.js`
+**Objective**: Fix all 10 critical bugs blocking driver phase navigation, map routing, passenger session restore, and trip history.
+**Files changed**: `backend/index.js`, `frontend/script.js`, `frontend/index.html`
 
 ### Phase 2: Stability & Polish
 **Status**: ⬜ Not Started

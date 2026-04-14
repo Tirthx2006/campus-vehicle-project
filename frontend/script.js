@@ -534,10 +534,22 @@ window.onload = function () {
                             actionBtn.style.background = "#f39c12";
                             // BUG FIX: restore correct onclick for this status
                             actionBtn.onclick = requestPaymentsPhase;
+                            // Enter the journey phase page
+                            showPage('driver-ride-started');
+                            setTimeout(() => {
+                                const map = document.getElementById("cc-map-container");
+                                const mapWrapper = document.getElementById("ride-started-map-wrapper");
+                                if (map && mapWrapper) mapWrapper.appendChild(map);
+                            }, 500);
                         } else if (mission.status === "payment_pending") {
                             actionBtn.innerHTML = "🏁 Close Mission";
                             actionBtn.style.background = "#2ecc71";
                             actionBtn.onclick = closeMissionPhase;
+                            // Enter the payment phase page
+                            showPage('driver-payment');
+                            const container = document.getElementById("cc-requests-container");
+                            const wrapper = document.getElementById("payment-requests-wrapper");
+                            if (wrapper && container) wrapper.appendChild(container);
                         } else {
                             actionBtn.innerHTML = "► Start Trajectory";
                             actionBtn.style.background = "#4e69e2";
@@ -597,8 +609,8 @@ window.onload = function () {
                     showPage('passenger-mission-status');
                     listenForRideStatusUpdates(activeRideId);
 
-                    if (data.status === 'accepted' || data.status === 'arrived') {
-                        // Already accepted or arrived — restore the full accepted UI
+                    if (['accepted', 'arrived', 'in_progress', 'payment_pending'].includes(data.status)) {
+                        // Restore state
                         if (data.destLat && data.destLng) {
                             localStorage.setItem("passengerRideDestLat", data.destLat);
                             localStorage.setItem("passengerRideDestLng", data.destLng);
@@ -610,8 +622,17 @@ window.onload = function () {
                         }
                         _applyRideAccepted(data.driverName, data.driverEmail, data.destination, data.vehicleModel, data.vehicleNumber);
 
-                        // If arrived, also show the arrived notification state
-                        if (data.status === 'arrived') {
+                        if (data.status === 'payment_pending') {
+                            showPage('passenger-payment');
+                            _hydratePaymentModal({
+                                type: data.rideType,
+                                fare: data.fare,
+                                upiId: data.upiId,
+                                qrPhoto: data.qrPhoto
+                            });
+                        } else if (data.status === 'in_progress') {
+                            showPage('passenger-ride-started');
+                        } else if (data.status === 'arrived') {
                             const text = document.getElementById("pickup-status-text");
                             if (text) text.innerText = "Driver has arrived! Please board the vehicle.";
                         }
@@ -1617,6 +1638,10 @@ function handleMissionAction() {
     const container = document.getElementById("cc-requests-container");
     const wrapper = document.getElementById("pickup-requests-wrapper");
     if (wrapper && container) wrapper.appendChild(container);
+
+    const map = document.getElementById("cc-map-container");
+    const mapWrapper = document.getElementById("pickup-map-wrapper");
+    if (map && mapWrapper) mapWrapper.appendChild(map);
 }
 
 function startJourneyPhase() {
@@ -1625,6 +1650,10 @@ function startJourneyPhase() {
             showNotification('Trajectory Started!', 'success');
             startGPSBroadcasting();
             showPage('driver-ride-started');
+
+            const map = document.getElementById("cc-map-container");
+            const mapWrapper = document.getElementById("ride-started-map-wrapper");
+            if (map && mapWrapper) mapWrapper.appendChild(map);
         }).catch(err => showNotification("Failed to start", "error"));
 }
 

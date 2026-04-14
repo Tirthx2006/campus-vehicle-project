@@ -906,8 +906,9 @@ app.get("/my-ride-status", auth, async (req, res) => {
     if (ride) {
       const myReq = ride.requests.find(r => r.email === passengerEmail);
       if (!myReq) return res.json({ status: "not_found" });
+      const driver = await User.findOne({ email: ride.driverEmail });
       return res.json({
-        status: myReq.status,         // "pending" | "accepted" | "arrived" | "paid"
+        status: myReq.status,         // "pending" | "accepted" | "arrived" | "paid" | "in_progress" | "payment_pending"
         rideType: "route_share",
         driverName: ride.driverName,
         driverEmail: ride.driverEmail,
@@ -917,7 +918,10 @@ app.get("/my-ride-status", auth, async (req, res) => {
         fromLat: ride.fromLat,
         fromLng: ride.fromLng,
         vehicleModel: ride.vehicleModel,
-        vehicleNumber: ride.vehicleNumber
+        vehicleNumber: ride.vehicleNumber,
+        fare: ride.fare,
+        upiId: driver?.driverDetails?.upiId,
+        qrPhoto: driver?.driverDetails?.qrPhoto
       });
     }
 
@@ -929,10 +933,16 @@ app.get("/my-ride-status", auth, async (req, res) => {
       if (terminalStatuses.includes(quickReq.status)) {
         return res.json({ status: "driver_ended", rideType: "quick_drop" });
       }
+      const driver = await User.findOne({ email: quickReq.driverEmail });
       return res.json({
         status: quickReq.status,   // "pending" | "accepted" | "arrived" | "in_progress" | "payment_pending"
         rideType: "quick_drop",
-        driverEmail: quickReq.driverEmail
+        driverName: quickReq.driverName || (driver ? driver.name : "Driver"),
+        driverEmail: quickReq.driverEmail,
+        destination: (quickReq.pickup || "Campus") + " → " + (quickReq.drop || "Campus"),
+        fare: 10,
+        upiId: driver?.driverDetails?.upiId,
+        qrPhoto: driver?.driverDetails?.qrPhoto
       });
     }
 
