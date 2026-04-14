@@ -6,44 +6,439 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Campus Vehicle booking & management system</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <style>
+        .map-container {
+            width: 100%;
+            height: 400px;
+            border-radius: 16px;
+            overflow: hidden;
+            margin: 16px 0;
+            border: 1px solid rgba(78, 105, 226, 0.2);
+            transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+        }
 
+        .map-container.tall {
+            height: 420px;
+        }
 
+        /* Driver maps are enlarged but more compact than passenger maps */
+        #cc-map-container,
+        #rs-map-container {
+            height: 280px;
+        }
+
+        .eta-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(46, 204, 113, 0.12);
+            color: #1a8a4a;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin: 8px 0 0;
+        }
+
+        .trip-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 14px 16px;
+            margin: 10px 0;
+            border-left: 4px solid #4e69e2;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            text-align: left;
+        }
+
+        .trip-card.driver-trip {
+            border-left-color: #2ecc71;
+        }
+
+        .trip-card .tc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .trip-card .tc-dest {
+            font-weight: 700;
+            font-size: 15px;
+            color: #222;
+        }
+
+        .tc-badge {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .tc-badge.passenger {
+            background: rgba(78, 105, 226, 0.12);
+            color: #4e69e2;
+        }
+
+        .tc-badge.driver {
+            background: rgba(46, 204, 113, 0.12);
+            color: #1a8a4a;
+        }
+
+        .trip-card .tc-meta {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .settings-section {
+            margin-bottom: 28px;
+        }
+
+        .settings-section h4 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #aaa;
+            margin: 0 0 10px;
+        }
+
+        .settings-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 13px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .settings-row:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 42px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: #ccc;
+            border-radius: 24px;
+            cursor: pointer;
+            transition: .3s;
+        }
+
+        .toggle-slider:before {
+            content: "";
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: .3s;
+        }
+
+        .toggle-switch input:checked+.toggle-slider {
+            background: #4e69e2;
+        }
+
+        .toggle-switch input:checked+.toggle-slider:before {
+            transform: translateX(18px);
+        }
+
+        .pac-container {
+            z-index: 9999 !important;
+        }
+
+        /* ── Slide-in animation for new request cards ── */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-12px) scale(0.97);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* ── Pickup Location Modal ── */
+        #pickup-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100000;
+            padding: 20px;
+        }
+
+        #pickup-modal.hidden {
+            display: none;
+        }
+
+        .pickup-modal-box {
+            background: #fff;
+            border-radius: 24px;
+            padding: 28px 24px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+            animation: toastIn .25s cubic-bezier(.21, 1.02, .73, 1) forwards;
+        }
+
+        .pickup-modal-box h3 {
+            font-size: 17px;
+            font-weight: 800;
+            color: #1a1a2e;
+            margin: 0 0 6px;
+        }
+
+        .pickup-modal-box p {
+            font-size: 13px;
+            color: #888;
+            margin: 0 0 18px;
+        }
+
+        .pickup-modal-box input {
+            width: 100%;
+            padding: 13px 16px;
+            border: 2px solid #e0e4ff;
+            border-radius: 14px;
+            font-size: 14px;
+            color: #222;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            margin-bottom: 16px;
+        }
+
+        .pickup-modal-box input:focus {
+            border-color: #4e69e2;
+        }
+
+        .pickup-modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .pickup-modal-actions button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 14px;
+            border: none;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+
+        .pickup-modal-actions button:hover {
+            opacity: 0.85;
+        }
+
+        #pickup-modal-confirm {
+            background: linear-gradient(135deg, #4e69e2, #2ecc71);
+            color: #fff;
+        }
+
+        #pickup-modal-cancel {
+            background: #f0f0f0;
+            color: #555;
+        }
+
+        /* ── Custom Nominatim Autocomplete ── */
+        .input-group {
+            position: relative;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10000;
+            margin-top: 4px;
+        }
+
+        .autocomplete-item {
+            padding: 10px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item:hover {
+            background: #f8f9ff;
+            color: #4e69e2;
+            font-weight: 500;
+        }
+
+        /* ── Toast Notification ── */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+            width: 90%;
+            max-width: 380px;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            width: 100%;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+            animation: toastIn .3s cubic-bezier(.21, 1.02, .73, 1) forwards;
+            pointer-events: all;
+        }
+
+        .toast.hiding {
+            animation: toastOut .3s ease forwards;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #1a8a4a, #2ecc71);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #c0392b, #f44336);
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #3a52c4, #4e69e2);
+        }
+
+        .toast.warning {
+            background: linear-gradient(135deg, #d68910, #f39c12);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .toast-msg {
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateY(-14px) scale(.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes toastOut {
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-14px) scale(.95);
+            }
+        }
+
+        /* ── Custom Confirm Dialog ── */
+        #confirm-modal {
+            z-index: 99998;
+        }
+
+        #confirm-modal .modal-content {
+            max-width: 320px;
+        }
+
+        #confirm-modal .confirm-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+    </style>
 </head>
 
 <body>
 
-
-    <!-----------------------------------------SIGNUP PAGE THINGS--------------------------------------------->
-
+    <!-- ══════════════════ SIGNUP PAGE ══════════════════ -->
     <div id="signup-page" class="auth-card">
         <h2>Sign in / Log in</h2>
-        <div class="input-group"><label>Name</label><input type="text" id="signup-name" placeholder="Enter your name">
+        <div class="input-group">
+            <label>Name</label>
+            <input type="text" id="signup-name" placeholder="Enter your name">
         </div>
-        <div class="input-group"><label>Email</label><input type="email" id="signup-email"
-                placeholder="Enter your email"></div>
+        <div class="input-group">
+            <label>Email</label>
+            <input type="email" id="signup-email" placeholder="Enter your email">
+        </div>
         <div class="input-group">
             <label>Password</label>
             <div style="position:relative;">
-                <input type="password" id="signup-password" placeholder="••••••••">
-                <span onclick="togglePassword('signup-password', this)" style="position:absolute; right:15px; top:50%; transform:translateY(-50%);
-                 cursor:pointer; font-size:14px;">
-                    👁️
-                </span>
+                <input type="password" id="signup-password" placeholder="••••••••"
+                    onkeyup="checkPasswordStrength(this.value)">
+                <span onclick="togglePassword('signup-password',this)"
+                    style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px;">👁️</span>
+            </div>
+            <div id="password-rules" style="font-size:11px;color:#f44336;margin-top:8px;line-height:1.5;">
+                <div id="rule-length">❌ Min 8 characters</div>
+                <div id="rule-upper">❌ 1 uppercase letter</div>
+                <div id="rule-lower">❌ 1 lowercase letter</div>
+                <div id="rule-number">❌ 1 number</div>
+                <div id="rule-special">❌ 1 special character (@$!%*?&#^)</div>
             </div>
         </div>
-
         <div class="input-group">
             <label>Gender</label>
-            <select id="signup-gender" style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #ddd;">
+            <select id="signup-gender" style="width:100%;padding:12px;border-radius:12px;border:1px solid #ddd;">
                 <option value="">Select Gender</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
                 <option value="Other">Other</option>
             </select>
         </div>
-
         <button class="btn-primary" id="signup-btn" onclick="signupUser()">Sign up</button>
-
         <div class="divider"><span>Or</span></div>
         <div class="social-container">
             <button class="btn-social"><img src="https://www.google.com/favicon.ico" width="14"> Google</button>
@@ -52,33 +447,26 @@
         <div class="footer-text">Have an account? <span onclick="goToLogin()">Log In</span></div>
     </div>
 
-
-    <!--------------------------------------LOGIN PAGE THINGS--------------------------------------------->
-
+    <!-- ══════════════════ LOGIN PAGE ══════════════════ -->
     <div id="login-page" class="auth-card hidden">
         <h2>Log in</h2>
-        <div class="input-group"><label>Email</label>
+        <div class="input-group">
+            <label>Email</label>
             <input type="email" id="login-email" placeholder="Enter your email">
         </div>
-
         <div class="input-group">
             <label>Password</label>
             <div style="position:relative;">
                 <input type="password" id="login-password" placeholder="••••••••">
-                <span onclick="togglePassword('login-password', this)" style="position:absolute; right:15px; top:50%; transform:translateY(-50%);
-                        cursor:pointer; font-size:14px;">
-                    👁️
-                </span>
+                <span onclick="togglePassword('login-password',this)"
+                    style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px;">👁️</span>
             </div>
         </div>
-
         <button class="btn-primary" id="login-btn" onclick="loginUser()">Log In</button>
-
         <div class="footer-text">Don't have an account? <span onclick="goToSignup()">Sign Up</span></div>
     </div>
 
-
-    <!-----------------------------------------HOME PAGE THINGS--------------------------------------------->
+    <!-- ══════════════════ SIDEBAR ══════════════════ -->
     <div id="side-menu" class="side-menu">
         <div class="side-menu-header">
             <div class="profile-circle large">
@@ -86,95 +474,75 @@
             </div>
             <div class="side-user-info">
                 <h4 id="side-name">User Name</h4>
-                <p id="side-gender-display" style="color: #666; font-size: 14px; margin: 0;">Gender: ---</p>
+                <p id="side-gender-display" style="color:#666;font-size:14px;margin:0;">Gender: ---</p>
             </div>
             <button class="close-btn" onclick="toggleSidebar()">×</button>
         </div>
-
         <div class="side-links">
-            <div class="side-item" onclick="showPage('profile'); toggleSidebar()">
-                <span class="icon">👤</span> My Profile
+            <div class="side-item" onclick="showPage('profile');toggleSidebar()"><span class="icon">👤</span> My Profile
             </div>
-            <!-- MOVED FROM NAV TO SIDEBAR -->
-            <div class="side-item" onclick="showPage('about'); toggleSidebar()">
-                <span class="icon">ℹ️</span> About us
+            <div class="side-item" onclick="showPage('about');toggleSidebar()"><span class="icon">ℹ️</span> About us
             </div>
-            <div class="side-item" onclick="showPage('support'); toggleSidebar()">
-                <span class="icon">🎧</span> Support
+            <div class="side-item" onclick="showPage('support');toggleSidebar()"><span class="icon">🎧</span> Support
             </div>
-            <!-- END OF MOVED ITEMS -->
-            <div class="side-item" onclick="showPage('settings'); toggleSidebar()">
-                <span class="icon">⚙️</span> Settings
+            <div class="side-item" onclick="showPage('settings');toggleSidebar()"><span class="icon">⚙️</span> Settings
             </div>
             <div class="side-item" onclick="logout()"
-                style="color: #f44336; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                style="color:#f44336;margin-top:20px;border-top:1px solid #eee;padding-top:15px;">
                 <span class="icon">🚪</span> Logout
             </div>
         </div>
     </div>
     <div id="sidebar-overlay" class="overlay hidden" onclick="toggleSidebar()"></div>
 
-
+    <!-- ══════════════════ HOME PAGE SHELL ══════════════════ -->
     <div id="home-page" class="hidden">
 
         <nav>
-            <div style="display: flex; align-items: center;">
+            <div style="display:flex;align-items:center;">
                 <div class="hamburger-trigger" onclick="toggleSidebar()"
-                    style="cursor: pointer; font-size: 22px; margin-right: 15px; color: #333;">
-                    ☰
-                </div>
-
-                <div class="profile-section" onclick="showPage('profile')" style="cursor: pointer;">
+                    style="cursor:pointer;font-size:22px;margin-right:15px;color:#333;">☰</div>
+                <div class="profile-section" onclick="showPage('profile')" style="cursor:pointer;">
                     <div class="profile-circle">
                         <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="User">
                     </div>
-                    <span id="nav-user-name" style="font-weight: bold; font-size: 14px;">User</span>
+                    <span id="nav-user-name" style="font-weight:bold;font-size:14px;">User</span>
                 </div>
             </div>
-
             <div class="nav-links">
                 <a href="#" id="nav-home" class="active" onclick="showPage('home')">Home</a>
                 <a href="#" id="nav-trips" onclick="showPage('trips')">My Activity</a>
             </div>
-
             <button class="btn-logout-small" onclick="logout()">Log out</button>
         </nav>
 
-
-        <!-- ✅ HOME PAGE -->
+        <!-- ── HOME ── -->
         <div id="page-home">
-
             <div class="selection-card">
                 <div class="selection-header">Select Role</div>
-
                 <div class="mode-pill" onclick="enterPassenger()">
                     <span class="mode-icon">👤</span>
                     <span class="mode-text">Passenger</span>
                     <span class="mode-arrow">→</span>
                 </div>
-
                 <div class="mode-pill" onclick="enterDriver()">
                     <span class="mode-icon">🚗</span>
                     <span class="mode-text">Driver</span>
                     <span class="mode-arrow">→</span>
                 </div>
             </div>
-
             <div class="dashboard-compact">
                 <h4 class="recent-title">Recent</h4>
-
                 <div class="trip-row-small">
                     <div class="car-circle-small"><img src="https://cdn-icons-png.flaticon.com/512/744/744465.png">
                     </div>
                     <span>UVPCE</span>
                 </div>
-
                 <div class="trip-row-small">
                     <div class="car-circle-small"><img src="https://cdn-icons-png.flaticon.com/512/744/744465.png">
                     </div>
                     <span>MB UVPCE</span>
                 </div>
-
                 <div class="trip-row-small">
                     <div class="car-circle-small"><img src="https://cdn-icons-png.flaticon.com/512/744/744465.png">
                     </div>
@@ -183,46 +551,140 @@
             </div>
         </div>
 
-        <!-- ✅ ABOUT PAGE -->
+        <!-- ── ABOUT ── -->
         <div id="page-about" class="hidden">
             <div class="glass-card">
+                <button class="btn-back" onclick="showPage('home')">← Back</button>
                 <h3>About Us</h3>
-                <p>This system manages campus transport, drivers, and student ride sharing.</p>
+                <p style="color:#555;line-height:1.7;margin-bottom:16px;">Campus Vehicle is a student-built ride
+                    platform designed for university communities. It connects people who need a ride with verified
+                    drivers for two modes: <strong>Quick Drop</strong> for fast on-campus hops, and <strong>Route
+                        Share</strong> for customized long-distance rides where passengers share the cost of a journey.
+                </p>
+                <div style="padding:15px;background:rgba(78,105,226,0.07);border-radius:14px;">
+                    <div style="font-size:13px;color:#4e69e2;font-weight:600;margin-bottom:8px;">Built with</div>
+                    <div style="font-size:13px;color:#555;line-height:1.8;">Node.js · Express · MongoDB · Socket.io ·
+                        JWT · Google Maps API</div>
+                </div>
             </div>
         </div>
 
-        <!-- ✅ TRIPS PAGE -->
+        <!-- ── MY ACTIVITY ── -->
         <div id="page-trips" class="hidden">
             <div class="glass-card">
-                <h3>My Trips</h3>
-                <p>Your booked rides will appear here.</p>
+                <button class="btn-back" onclick="showPage('home')">← Back</button>
+                <h3 style="margin-bottom:4px;">My Activity</h3>
+                <p style="font-size:13px;color:#888;margin-bottom:20px;">Your recent rides and missions</p>
+                <div id="trips-loading" style="text-align:center;color:#4e69e2;font-size:14px;padding:20px 0;">
+                    <span class="loading-spinner"></span> Loading activity...
+                </div>
+                <div id="trips-list"></div>
+                <div id="trips-empty" class="hidden" style="text-align:center;padding:30px 0;color:#aaa;">
+                    <div style="font-size:36px;margin-bottom:10px;">🛣️</div>
+                    <p>No rides yet. Book your first trajectory!</p>
+                </div>
             </div>
         </div>
 
-        <!-- ✅ SUPPORT PAGE -->
+        <!-- ── SUPPORT ── -->
         <div id="page-support" class="hidden">
             <div class="glass-card">
+                <button class="btn-back" onclick="showPage('home')">← Back</button>
                 <h3>Support</h3>
-                <p>Contact admin or raise issues here.</p>
+                <p style="color:#555;margin-bottom:20px;">Need help? Reach out through any of the channels below.</p>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <a href="/cdn-cgi/l/email-protection#daa9afaaaab5a8ae9ab9bbb7aaafa9acbfb2b3b9b6bff4b3b4"
+                        style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(78,105,226,0.07);border-radius:14px;text-decoration:none;color:#333;">
+                        <span style="font-size:20px;">📧</span>
+                        <div>
+                            <div style="font-weight:600;font-size:14px;">Email Support</div>
+                            <div style="font-size:12px;color:#888;"><span class="__cf_email__"
+                                    data-cfemail="cab9bfbabaa5b8be8aa9aba7babfb9bcafa2a3a9a6afe4a3a4">[email&#160;protected]</span>
+                            </div>
+                        </div>
+                    </a>
+                    <div
+                        style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(78,105,226,0.07);border-radius:14px;color:#333;">
+                        <span style="font-size:20px;">💬</span>
+                        <div>
+                            <div style="font-weight:600;font-size:14px;">Campus Help Desk</div>
+                            <div style="font-size:12px;color:#888;">UVPCE Admin Block, Ground Floor</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- ── SETTINGS ── -->
+        <div id="page-settings" class="hidden">
+            <div class="glass-card">
+                <button class="btn-back" onclick="showPage('home')">← Back</button>
+                <h3 style="margin-bottom:24px;">Settings</h3>
+
+                <div class="settings-section">
+                    <h4>Notifications</h4>
+                    <div class="settings-row">
+                        <span>Ride request alerts</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-notif-rides" checked onchange="saveSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <span>Driver status updates</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-notif-status" checked onchange="saveSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h4>Preferences</h4>
+                    <div class="settings-row">
+                        <span>Show fare in search results</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-show-fare" checked onchange="saveSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <span>Default mode</span>
+                        <select id="setting-default-mode" onchange="saveSettings()"
+                            style="border:1px solid #ddd;border-radius:8px;padding:5px 10px;font-size:13px;color:#333;">
+                            <option value="passenger">Passenger</option>
+                            <option value="driver">Driver</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h4>Account</h4>
+                    <div class="settings-row">
+                        <span>App version</span>
+                        <span style="color:#aaa;font-size:13px;">2.0.0</span>
+                    </div>
+                    <div class="settings-row" style="cursor:pointer;" onclick="logout()">
+                        <span style="color:#f44336;">Log out of all devices</span>
+                        <span style="color:#f44336;">→</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── PROFILE ── -->
         <div id="page-profile" class="hidden">
             <div class="glass-card">
                 <button class="btn-back" onclick="showPage('home')">← Back</button>
-
-                <h2 style="text-align: center; margin-bottom: 30px;">User Profile</h2>
-
+                <h2 style="text-align:center;margin-bottom:30px;">User Profile</h2>
                 <div class="info-group">
                     <div class="info-label">Full Name</div>
-                    <div id="prof-name" class="info-value">Tirth</div>
+                    <div id="prof-name" class="info-value">---</div>
                 </div>
-
                 <div class="info-group">
                     <div class="info-label">Email Address</div>
-                    <div id="prof-email" class="info-value">tirthgajjar5555@gmail.com</div>
+                    <div id="prof-email" class="info-value">---</div>
                 </div>
-
                 <div class="info-group">
                     <div class="info-label">Gender</div>
                     <select id="edit-gender" class="profile-select" onchange="updateGenderInDB(this.value)">
@@ -234,204 +696,344 @@
             </div>
         </div>
 
-
+        <!-- ── PASSENGER: QUICK DROP ── -->
         <div id="page-passenger" class="hidden">
             <div class="glass-card">
                 <button class="btn-back" onclick="showPage('home')">← Back</button>
                 <h3>Quick Drop</h3>
-                <p style="font-size: 13px; color: #666; margin-bottom: 20px;">Inside Campus Trajectory</p>
-
+                <p style="font-size:13px;color:#666;margin-bottom:20px;">Inside Campus Trajectory</p>
                 <div class="input-group">
                     <label>Pickup Location</label>
-                    <input type="text" id="qp-pickup" placeholder="e.g. Admin Block">
+                    <input type="text" id="qp-pickup" placeholder="e.g. Admin Block" autocomplete="off">
                 </div>
                 <div class="input-group">
                     <label>Drop-off Point</label>
-                    <input type="text" id="qp-drop" placeholder="e.g. Hostel Gate">
+                    <input type="text" id="qp-drop" placeholder="e.g. Hostel Gate" autocomplete="off">
                 </div>
-
                 <button class="btn-primary" id="search-campus-btn" onclick="searchCampusDrivers()">
                     Scan for Active Beacons
                 </button>
-
-                <div id="campus-drivers-results" style="margin-top: 20px; text-align: left;">
-                </div>
+                <div id="campus-drivers-results" style="margin-top:20px;text-align:left;"></div>
             </div>
         </div>
 
+        <!-- ── PASSENGER: ROUTE SEARCH ── -->
         <div id="page-passenger-route-search" class="hidden">
             <div class="glass-card">
                 <button class="btn-back" onclick="showPage('home')">← Back</button>
-                <h3 style="color: #4e69e2;">Find a Route Share</h3>
-                <p style="font-size: 13px; color: #666; margin-bottom: 25px;">Search for trajectories outside campus</p>
-
-                <div class="input-group" style="position: relative;">
+                <h3 style="color:#4e69e2;">Find a Route Share</h3>
+                <p style="font-size:13px;color:#666;margin-bottom:25px;">Find long-distance &amp; custom route rides</p>
+                <div class="input-group" style="position:relative;">
                     <label>Destination</label>
-                    <input type="text" id="ps-search-destination" placeholder="Where are you going?"
-                        onkeyup="searchActiveRoutes()">
-                    <span style="position: absolute; right: 15px; top: 38px;">🔍</span>
+                    <input type="text" id="ps-search-destination" placeholder="Where are you going?" autocomplete="off"
+                        onkeyup="selectionPinLat=null;selectionPinLng=null;searchActiveRoutes()">
+                    <span style="position:absolute;right:15px;top:38px;">🔍</span>
                 </div>
-
-                <div id="search-results-container" style="margin-top: 20px; text-align: left;">
-                    <p style="color: #888; text-align: center; font-size: 14px;">Enter a destination to see available
+                <!-- Interactive map for destination selection -->
+                <div id="ps-selection-map-wrap" style="margin-bottom:8px;">
+                    <div style="font-size:11px;color:#888;margin-bottom:4px;text-align:left;">📍 Or tap the map to set
+                        destination</div>
+                    <div id="ps-selection-map" class="map-container"
+                        style="height:220px;cursor:crosshair;margin:0 0 8px;"></div>
+                </div>
+                <button id="ps-refresh-btn" onclick="searchActiveRoutes()" style="width:auto;padding:8px 18px;margin:0 0 8px auto;display:block;
+                           background:rgba(78,105,226,0.1);color:#4e69e2;border:1px solid rgba(78,105,226,0.3);
+                           border-radius:20px;font-size:13px;cursor:pointer;font-weight:600;">
+                    ↻ Refresh Results
+                </button>
+                <div id="search-results-container" style="margin-top:4px;text-align:left;">
+                    <p style="color:#888;text-align:center;font-size:14px;">Enter a destination to see available
                         missions.</p>
                 </div>
             </div>
         </div>
 
+        <!-- ── PASSENGER: MISSION PENDING ── -->
         <div id="page-passenger-mission-status" class="hidden">
             <div class="glass-card">
-                <h3 style="color: #4e69e2;">Mission Status</h3>
-
-                <div style="margin: 30px 0;">
+                <h3 style="color:#4e69e2;">Mission Status</h3>
+                <div style="margin:20px 0 10px;text-align:center;">
                     <div id="ps-status-orb" class="pulse-orb pending"></div>
-                    <p id="ps-status-text" style="font-weight: bold; margin-top: 15px;">Awaiting Driver Response...</p>
+                    <p id="ps-status-text" style="font-weight:bold;margin-top:15px;">Awaiting Driver Response...</p>
                 </div>
-
                 <div id="ps-mission-details"
-                    style="text-align: left; background: rgba(78, 105, 226, 0.05); padding: 20px; border-radius: 20px;">
+                    style="text-align:left;background:rgba(78,105,226,0.05);padding:20px;border-radius:20px;margin-top:8px;">
                     <div class="info-label">Agreement Status</div>
-                    <div style="font-size: 14px; color: #444; margin-bottom: 10px;">
+                    <div id="ps-agreement-text" style="font-size:14px;color:#444;margin-bottom:10px;">
                         Your trajectory request is currently being reviewed by the driver.
                     </div>
                 </div>
+                <button class="btn-primary" style="background:#f44336;margin-top:20px;" onclick="endPassengerJourney()">
+                    Cancel Request
+                </button>
+            </div>
+        </div>
 
-                <button class="btn-primary" style="background: #f44336; margin-top: 20px;"
-                    onclick="endPassengerJourney()">
+        <!-- ── PASSENGER: PICKING UP ── -->
+        <div id="page-passenger-picking-up" class="hidden">
+            <div class="glass-card">
+                <h3 style="color:#2ecc71;">Driver En Route!</h3>
+                <div style="margin:20px 0 10px;text-align:center;">
+                    <div class="pulse-orb accepted"></div>
+                    <p id="pickup-status-text" style="font-weight:bold;margin-top:15px;">Mission Confirmed! Meet your
+                        Driver.</p>
+                </div>
+                <!-- Map + ETA shown once driver accepts -->
+                <div id="ps-map-container" class="map-container hidden"></div>
+                <div id="ps-eta-wrap" class="hidden" style="text-align:center;margin-bottom:12px;">
+                    <span class="eta-badge">🕐 <span id="ps-eta-text">Calculating...</span></span>
+                </div>
+                <!-- Driver info block -->
+                <div id="ps-driver-info" style="display:flex;align-items:center;gap:14px;background:rgba(46,204,113,0.08);
+                           border:1px solid rgba(46,204,113,0.25);border-radius:16px;padding:14px 16px;margin:8px 0;">
+                    <div style="font-size:32px;">🚗</div>
+                    <div>
+                        <div id="ps-driver-name" style="font-weight:700;font-size:15px;color:#1a8a4a;"></div>
+                        <div id="ps-driver-dest" style="font-size:12px;color:#555;margin-top:3px;"></div>
+                    </div>
+                </div>
+                <div
+                    style="text-align:left;background:rgba(78,105,226,0.05);padding:20px;border-radius:20px;margin-top:8px;">
+                    <div class="info-label">Agreement Status</div>
+                    <div id="pickup-agreement-text" style="font-size:14px;color:#444;margin-bottom:10px;">
+                        Confirmed by Driver. They will pick you up en route — watch for their vehicle.
+                    </div>
+                </div>
+                <button class="btn-primary" style="background:#f44336;margin-top:20px;" onclick="endPassengerJourney()">
                     Finish / Leave Journey
                 </button>
             </div>
         </div>
 
+        <!-- ── PASSENGER: RIDE STARTED ── -->
+        <div id="page-passenger-ride-started" class="hidden">
+            <div class="glass-card">
+                <h3 style="color:#4e69e2;">Journey In Progress</h3>
+                <div style="margin:20px 0 10px;text-align:center;">
+                    <div class="pulse-orb" style="background:#4e69e2;"></div>
+                    <p id="ride-status-text" style="font-weight:bold;margin-top:15px;">Enjoy the ride!</p>
+                </div>
+                <!-- Map to destination -->
+                <div id="ride-map-container" class="map-container hidden"></div>
+                <p style="font-size:13px;color:#666;margin-top:10px;">The driver has started the trajectory. Keep your
+                    belongings secure.</p>
+            </div>
+        </div>
+
+        <!-- ── PASSENGER: PAYMENT ── -->
+        <div id="page-passenger-payment" class="hidden">
+            <div class="glass-card">
+                <div class="modal-icon" style="font-size:40px;margin-bottom:10px;text-align:center;">💳</div>
+                <h3 style="color:#2ecc71;margin-bottom:4px;text-align:center;">Payment Settle</h3>
+                <p id="payment-driver-label" style="font-size:13px;color:#888;margin-bottom:14px;text-align:center;">
+                </p>
+                <p style="font-size:14px;color:#555;margin-bottom:16px;text-align:center;">
+                    You have arrived! Please pay the driver directly via Cash or UPI.
+                </p>
+                <div
+                    style="background:rgba(46,204,113,0.1);border-radius:15px;padding:20px;margin-bottom:20px;text-align:center;">
+                    <div style="font-size:12px;color:#1a8a4a;font-weight:bold;text-transform:uppercase;">Amount Due
+                    </div>
+                    <div id="payment-amount" style="font-size:36px;font-weight:900;color:#2ecc71;">₹0.00</div>
+
+                    <div id="payment-qr-container" class="hidden"
+                        style="margin-top:15px;background:#fff;padding:15px;border-radius:10px;display:flex;flex-direction:column;align-items:center;">
+                        <img id="payment-qr-img"
+                            style="width:160px;max-height:160px;object-fit:contain;display:block;" />
+                        <div id="payment-upi-string"
+                            style="font-size:13px;font-weight:bold;color:#4e69e2;margin-top:10px;"></div>
+                    </div>
+                </div>
+                <button id="payment-confirm-btn" class="btn-primary" style="background:#4e69e2;"
+                    onclick="confirmPaymentSent()">
+                    I have Paid via Cash / UPI
+                </button>
+            </div>
+        </div>
+
+        <!-- ── DRIVER: CAMPUS PANEL ── -->
         <div id="page-driver" class="hidden">
             <div class="glass-card" id="driver-card">
                 <button class="btn-back" id="driver-back-btn" onclick="exitDriverMode()">← Back</button>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
                     <h3>Driver Panel</h3>
-                    <div id="driver-status-indicator" style="color: #f44336; font-weight: bold;">● Offline</div>
+                    <div id="driver-status-indicator" style="color:#f44336;font-weight:bold;">● Offline</div>
                 </div>
                 <p id="driver-instruction">You are currently invisible to passengers.</p>
-
-                <button id="toggle-shift-btn" class="btn-primary" style="background: #2ecc71;"
-                    onclick="toggleShift()">Go Online</button>
+                <button id="toggle-shift-btn" class="btn-primary" style="background:#2ecc71;" onclick="toggleShift()">
+                    Go Online
+                </button>
             </div>
-
             <div class="dashboard">
                 <h4>Incoming Requests</h4>
                 <div id="request-container"
-                    style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; text-align: center;">
+                    style="background:rgba(255,255,255,0.1);padding:20px;border-radius:15px;text-align:center;">
                     <p>Go online to see requests.</p>
                 </div>
             </div>
         </div>
 
+        <!-- ── BRANCH SELECTION OVERLAY ── -->
         <div id="branch-selection-overlay" class="hidden">
             <div class="branch-container">
                 <h2 id="branch-title" class="futuristic-title">Set your Driving Scope</h2>
-
                 <div class="branch-paths">
                     <div class="branch-option" onclick="selectSubMode('campus')">
                         <div class="branch-icon">🚀</div>
                         <span>Quick Drop</span>
                         <small>(Inside Campus)</small>
                     </div>
-
                     <div class="branch-option" onclick="selectSubMode('outside')">
                         <div class="branch-icon">🗺️</div>
                         <span>Route Share</span>
-                        <small>(Outside Campus)</small>
+                        <small>(Long Distance / Custom Route)</small>
                     </div>
                 </div>
                 <button class="btn-cancel-branch" onclick="hideBranchSelection()">Cancel</button>
             </div>
         </div>
 
+        <!-- ── DRIVER: ROUTE SHARE PUBLISH ── -->
         <div id="page-driver-route-share" class="hidden">
-            <div class="glass-card" style="max-width: 450px;">
+            <div class="glass-card" style="max-width:450px;">
                 <button class="btn-back" onclick="showPage('home')">← Back</button>
-                <h3 style="color: #4e69e2; margin-bottom: 5px;">Route Share</h3>
-                <p style="font-size: 13px; color: #666; margin-bottom: 25px;">Mission Briefing: Set your trajectory</p>
-
+                <h3 style="color:#4e69e2;margin-bottom:5px;">Route Share</h3>
+                <p style="font-size:13px;color:#666;margin-bottom:25px;">Publish a seat on your journey &amp; split the
+                    cost</p>
                 <div class="input-group">
-                    <label>Destination Trajectory</label>
-                    <input type="text" id="rs-destination" placeholder="Where are you heading? (e.g. Ahmedabad)">
+                    <label>Departure / Starting Point</label>
+                    <input type="text" id="rs-from" placeholder="e.g. Mehsana, Gandhinagar…" autocomplete="off">
                 </div>
-
-                <div style="display: flex; gap: 15px;">
-                    <div class="input-group" style="flex: 1;">
+                <div class="input-group">
+                    <label>Destination Location</label>
+                    <!-- autocomplete attached via initMaps() -->
+                    <input type="text" id="rs-destination" placeholder="e.g. Ahmedabad, Surat, Mumbai…"
+                        autocomplete="off">
+                </div>
+                <!-- Mini map preview appears after destination is picked -->
+                <div id="rs-map-container" class="map-container hidden"></div>
+                <div id="rs-eta-wrap" class="hidden" style="margin-bottom:12px;">
+                    <span class="eta-badge">📍 <span id="rs-eta-text"></span></span>
+                </div>
+                <div style="display:flex;gap:15px;">
+                    <div class="input-group" style="flex:1;">
                         <label>Available Seats</label>
                         <input type="number" id="rs-seats" min="1" max="6" value="1">
                     </div>
-                    <div class="input-group" style="flex: 1;">
+                    <div class="input-group" style="flex:1;">
                         <label>Departure Time</label>
                         <input type="time" id="rs-time">
                     </div>
                 </div>
-
                 <div class="input-group">
                     <label>Fare Contribution (Per Person)</label>
-                    <div style="position: relative;">
+                    <div style="position:relative;">
                         <span
-                            style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #4e69e2; font-weight: bold;">₹</span>
-                        <input type="number" id="rs-fare" style="padding-left: 30px;" placeholder="0.00">
+                            style="position:absolute;left:15px;top:50%;transform:translateY(-50%);color:#4e69e2;font-weight:bold;">₹</span>
+                        <input type="number" id="rs-fare" style="padding-left:30px;" placeholder="0.00">
                     </div>
                 </div>
-
-                <button class="btn-primary" style="background: linear-gradient(135deg, #4e69e2, #2ecc71);"
-                    onclick="publishRoute()">Publish Trajectory</button>
+                <button class="btn-primary" style="background:linear-gradient(135deg,#4e69e2,#2ecc71);"
+                    onclick="publishRoute()">
+                    Publish Trajectory
+                </button>
             </div>
         </div>
 
+        <!-- ── DRIVER: COMMAND CENTER ── -->
         <div id="page-driver-command-center" class="hidden">
             <div class="glass-card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                    <h3 style="margin:0; color:#4e69e2;">Command Center</h3>
-                    <span id="cc-status" style="color:#2ecc71; font-weight:bold; font-size:12px;">● ACTIVE
-                        MISSION</span>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <h3 style="margin:0;color:#4e69e2;">Command Center</h3>
+                    <span id="cc-status" style="color:#2ecc71;font-weight:bold;font-size:12px;">● ACTIVE MISSION</span>
                 </div>
-
                 <div id="active-route-display"
-                    style="background:rgba(78, 105, 226, 0.1); padding:15px; border-radius:15px; text-align:left; margin-bottom:25px;">
+                    style="background:rgba(78,105,226,0.1);padding:15px;border-radius:15px;text-align:left;margin-bottom:16px;">
                     <div class="info-label">Current Trajectory</div>
                     <div id="cc-destination" class="info-value" style="margin-bottom:10px;">---</div>
-                    <div style="display:flex; justify-content:space-between;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-end;">
                         <div>
                             <div class="info-label">Seats</div>
                             <div id="cc-seats" style="font-weight:bold;">0/0</div>
                         </div>
                         <div>
                             <div class="info-label">Fare</div>
-                            <div id="cc-fare" style="font-weight:bold;">$0.00</div>
+                            <div id="cc-fare" style="font-weight:bold;">₹0.00</div>
+                        </div>
+                        <div id="cc-eta-wrap" class="hidden">
+                            <div class="info-label">Drive time</div>
+                            <div id="cc-eta" style="font-weight:bold;color:#2ecc71;">---</div>
                         </div>
                     </div>
                 </div>
+                <!-- Live route map in command center -->
+                <div id="cc-map-container" class="map-container hidden"></div>
 
-                <h4 style="text-align:left; margin-bottom:15px;">Passenger Requests</h4>
+                <h4 style="text-align:left;margin-bottom:15px;" id="driver-list-title">Passenger Requests</h4>
                 <div id="cc-requests-container" style="min-height:100px;">
-                    <p style="color:#888; font-size:14px;">Scanning for nearby students...</p>
+                    <p style="color:#888;font-size:14px;">Scanning for nearby students...</p>
                 </div>
-
-                <button class="btn-primary" style="background:#2ecc71; margin-top:20px;" onclick="completeTrajectory()">
-                    Finish Journey
+                <button id="cmd-action-btn" class="btn-primary" style="background:#4e69e2;margin-top:20px;"
+                    onclick="handleMissionAction()">
+                    ► Proceed to Pickup Phase
                 </button>
-                <button class="btn-primary" style="background:#f44336; margin-top:10px;" onclick="cancelTrajectory()">
+                <button class="btn-primary" style="background:#f44336;margin-top:10px;" onclick="cancelTrajectory()">
                     Abort Mission
                 </button>
-
             </div>
         </div>
 
+        <!-- ── DRIVER: PICKUP PHASE ── -->
+        <div id="page-driver-picking-up" class="hidden">
+            <div class="glass-card">
+                <h3 style="color:#f39c12;margin-bottom:20px;">Driving to Passengers</h3>
+                <p style="font-size:13px;color:#555;margin-bottom:10px;">Pick up your linked passengers.</p>
+                <div id="pickup-requests-wrapper"></div>
+                <button class="btn-primary" style="background:#4e69e2;margin-top:20px;" onclick="startJourneyPhase()">
+                    ► Start Trajectory
+                </button>
+                <button class="btn-primary" style="background:#f44336;margin-top:10px;" onclick="cancelTrajectory()">
+                    Abort Mission
+                </button>
+            </div>
+        </div>
 
+        <!-- ── DRIVER: RIDE STARTED ── -->
+        <div id="page-driver-ride-started" class="hidden">
+            <div class="glass-card">
+                <h3 style="color:#2ecc71;margin-bottom:10px;">Journey In Progress</h3>
+                <div style="margin:20px 0;text-align:center;">
+                    <div class="pulse-orb" style="background:#4e69e2;"></div>
+                    <p style="font-weight:bold;margin-top:15px;color:#4e69e2;">Driving to destination...</p>
+                </div>
+                <button class="btn-primary" style="background:#f39c12;margin-top:20px;"
+                    onclick="requestPaymentsPhase()">
+                    💰 Arrived - Request Payments
+                </button>
+            </div>
+        </div>
+
+        <!-- ── DRIVER: PAYMENT ── -->
+        <div id="page-driver-payment" class="hidden">
+            <div class="glass-card">
+                <h3 style="color:#2ecc71;margin-bottom:15px;">Settle Payments</h3>
+                <p style="font-size:13px;color:#666;margin-bottom:20px;">Ensure all passengers are settled.</p>
+                <div id="payment-requests-wrapper"></div>
+                <button class="btn-primary" style="background:#2ecc71;margin-top:20px;" onclick="closeMissionPhase()">
+                    🏁 Close Mission
+                </button>
+            </div>
+        </div>
+
+        <!-- ── DRIVER: REGISTRATION ── -->
         <div id="page-driver-reg" class="hidden">
             <div class="glass-card">
-                <div style="text-align: left;">
+                <div style="text-align:left;">
                     <button class="btn-back" onclick="showPage('home')">← Back</button>
                 </div>
-
                 <h3>Driver Enrollment</h3>
-                <p style="font-size: 0.9rem; color: #555; margin-bottom: 25px;">Provide valid campus vehicle details.
-                </p>
-
+                <p style="font-size:0.9rem;color:#555;margin-bottom:25px;">Provide your driving license &amp; vehicle
+                    details to unlock both modes.</p>
                 <div class="input-group">
                     <label>Full Name (as per License)</label>
                     <input type="text" id="reg-fullname" placeholder="John Doe">
@@ -448,37 +1050,86 @@
                     <label>Vehicle Plate Number</label>
                     <input type="text" id="reg-vehicle-num" placeholder="GJ-01-XX-0000">
                 </div>
-
+                <div class="input-group">
+                    <label>UPI ID (Optional)</label>
+                    <input type="text" id="reg-upi-id" placeholder="username@upi">
+                    <p style="font-size:0.75rem;color:#888;margin-top:5px;">Required if you want auto-generated UPI QR
+                        codes for your passengers.</p>
+                </div>
+                <div class="input-group">
+                    <label>Upload custom UPI QR Code Photo (Optional)</label>
+                    <input type="file" id="reg-qr-photo" accept="image/*"
+                        style="font-size: 13px; padding: 10px 0; color:#555;">
+                </div>
                 <div class="checkbox-group">
                     <input type="checkbox" id="reg-terms">
-                    <label for="reg-terms">I agree to the <span
-                            style="color: #4e69e2; cursor: pointer; text-decoration: underline;">Terms &
-                            Conditions</span></label>
+                    <label for="reg-terms">I agree to the
+                        <span style="color:#4e69e2;cursor:pointer;text-decoration:underline;">Terms & Conditions</span>
+                    </label>
                 </div>
-
                 <button class="btn-primary" onclick="submitDriverRegistration()">Verify & Proceed</button>
             </div>
         </div>
 
+    </div><!-- /home-page -->
 
+    <!-- ══════════════════ TOAST CONTAINER ══════════════════ -->
+    <div id="toast-container"></div>
+
+    <!-- ══════════════════ PICKUP LOCATION MODAL ══════════════════ -->
+    <div id="pickup-modal" class="hidden">
+        <div class="pickup-modal-box">
+            <h3>📍 Enter Pickup Location</h3>
+            <p>Where along the route should the driver pick you up?</p>
+            <input type="text" id="pickup-modal-input" placeholder="e.g. Modhera Crossroads, Mehsana Bus Stand…"
+                autocomplete="off">
+            <div class="pickup-modal-actions">
+                <button id="pickup-modal-cancel">Cancel</button>
+                <button id="pickup-modal-confirm">Confirm & Send Request</button>
+            </div>
+        </div>
     </div>
 
-    <script src="script.js"></script>
-
-    <!-- CUSTOM LOGOUT MODAL -->
+    <!-- ══════════════════ LOGOUT MODAL ══════════════════ -->
     <div id="logout-modal" class="modal-overlay hidden">
         <div class="glass-card modal-content">
             <div class="modal-icon">🚪</div>
             <h3>Terminate Session?</h3>
             <p>Are you sure you want to end your current mission and log out?</p>
             <div class="modal-buttons">
-                <button class="btn-secondary" onclick="closeLogoutModal()">Cancel</button>
-                <button class="btn-danger" onclick="confirmLogout()">Confirm Logout</button>
+                <button class="btn-primary" style="background:#f44336;" onclick="confirmLogout()">Yes, Log Out</button>
+                <button class="btn-primary" style="background:#888;margin-top:10px;"
+                    onclick="closeLogoutModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════ CONFIRM DIALOG ══════════════════ -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="glass-card modal-content">
+            <div class="modal-icon" id="confirm-icon">❓</div>
+            <h3 id="confirm-title">Are you sure?</h3>
+            <p id="confirm-message">This action cannot be undone.</p>
+            <div class="confirm-btns">
+                <button class="btn-primary" id="confirm-ok-btn" style="background:#f44336;">Confirm</button>
+                <button class="btn-primary" style="background:#888;" onclick="_confirmReject()">Cancel</button>
             </div>
         </div>
     </div>
 
 
+
+    <!-- ══════════════════ SCRIPTS ══════════════════ -->
+    <!-- Socket.io — must load BEFORE script.js -->
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Main App Script -->
+    <script src="script.js"></script>
 </body>
 
 </html>
