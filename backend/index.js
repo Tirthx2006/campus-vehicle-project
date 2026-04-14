@@ -141,9 +141,11 @@ const QuickRequestSchema = new mongoose.Schema({
   passengerEmail: String,
   passengerName: String,
   driverEmail: String,
+  driverName: String,
   pickup: String,
   drop: String,
-  status: { type: String, default: "pending" }
+  status: { type: String, default: "pending" },
+  createdAt: { type: Date, default: Date.now }
 });
 
 const QuickRequest = mongoose.model("QuickRequest", QuickRequestSchema, "quick_requests");
@@ -712,7 +714,7 @@ app.post("/accept-passenger", auth, async (req, res) => {
   const { passengerEmail } = req.body;
 
   try {
-    const ride = await Ride.findOne({ driverEmail, status: "active" });
+    const ride = await Ride.findOne({ driverEmail, status: { $in: ["active", "in_progress"] } });
 
     if (!ride) return res.status(404).json({ message: "No active trajectory found" });
     if (ride.seats <= 0) return res.status(400).json({ message: "No seats available" });
@@ -761,7 +763,7 @@ app.post("/reject-passenger", auth, async (req, res) => {
   const { passengerEmail } = req.body;
 
   try {
-    const ride = await Ride.findOne({ driverEmail, status: "active" });
+    const ride = await Ride.findOne({ driverEmail, status: { $in: ["active", "in_progress"] } });
     if (!ride) return res.status(404).json({ message: "No active trajectory found" });
 
     const requestIndex = ride.requests.findIndex(r => r.email === passengerEmail && r.status === "pending");
@@ -816,7 +818,10 @@ app.post("/request-quick-drop", auth, async (req, res) => {
   const { driverEmail, pickup, drop } = req.body;
 
   try {
-    const newReq = new QuickRequest({ passengerEmail, passengerName, driverEmail, pickup, drop });
+    const driverUser = await User.findOne({ email: driverEmail });
+    const driverName = driverUser ? driverUser.name : "Driver";
+
+    const newReq = new QuickRequest({ passengerEmail, passengerName, driverEmail, driverName, pickup, drop });
     await newReq.save();
 
     // Push to the driver instantly — replaces polling /get-quick-requests
@@ -1014,28 +1019,51 @@ server.listen(PORT, () => {
 app.get("/my-trips", auth, async (req, res) => {
   const { email } = req.user;
   try {
-    // Rides they drove (completed or cancelled)
+    // Route Share - Driver
     const driverRides = await Ride.find({ driverEmail: email })
       .select("destination fare time createdAt status")
-      .sort({ createdAt: -1 })
-      .limit(20)
       .lean();
 
-    // Rides they joined as a passenger (request was accepted)
+    // Route Share - Passenger
     const passengerRides = await Ride.find({
       "requests.email": email,
-      "requests.status": "accepted"
+      "requests.status": { $in: ["accepted", "arrived", "paid"] }
     })
       .select("destination fare time driverName createdAt status")
-      .sort({ createdAt: -1 })
-      .limit(20)
+      .lean();
+
+    // Quick Drop - Driver
+    const qdDriver = await QuickRequest.find({ driverEmail: email })
+      .select("pickup drop createdAt status passengerName")
+      .lean();
+
+    // Quick Drop - Passenger
+    const qdPassenger = await QuickRequest.find({ passengerEmail: email })
+      .select("pickup drop createdAt status driverName")
       .lean();
 
     const driverFormatted = driverRides.map(r => ({ ...r, role: "driver" }));
     const passengerFormatted = passengerRides.map(r => ({ ...r, role: "passenger" }));
+    
+    // Format Quick Drops to match Route Share UI expectations
+    const qdDriverFormatted = qdDriver.map(r => ({
+      ...r,
+      role: "driver",
+      destination: (r.pickup || "Campus") + " → " + (r.drop || "Campus"),
+      fare: 10,
+      time: "Quick Drop"
+    }));
+    
+    const qdPassengerFormatted = qdPassenger.map(r => ({
+      ...r,
+      role: "passenger",
+      destination: (r.pickup || "Campus") + " → " + (r.drop || "Campus"),
+      fare: 10,
+      time: "Quick Drop"
+    }));
 
     // Merge and sort by date descending
-    const all = [...driverFormatted, ...passengerFormatted]
+    const all = [...driverFormatted, ...passengerFormatted, ...qdDriverFormatted, ...qdPassengerFormatted]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 30);
 

@@ -11,12 +11,15 @@
 - [x] `/arrive-passenger` works on in_progress rides (Bug 2b)
 - [x] Quick Drop passenger refresh handled correctly (Bug 2a)
 - [x] Departure coords forwarded to passenger map (Bug 5)
+- [x] Quick Drop driverName stored and retained (Bug 6)
+- [x] `/accept-passenger` and `/reject-passenger` work on in_progress rides (Bug 7)
+- [x] `my-trips` shows paid passenger rides and all Quick Drop rides (Bug 8)
 
 ## Phases
 
 ### Phase 1: Critical Ride Lifecycle Bug Fixes
 **Status**: ✅ Complete
-**Objective**: Fix all 5 critical bugs blocking driver phase navigation, map routing, and passenger session restore
+**Objective**: Fix all 8 critical bugs blocking driver phase navigation, map routing, passenger session restore, and trip history.
 **Files changed**: `backend/index.js`, `frontend/script.js`
 
 ### Phase 2: Stability & Polish
