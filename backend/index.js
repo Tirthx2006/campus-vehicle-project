@@ -117,6 +117,8 @@ const RideSchema = new mongoose.Schema({
   vehicleModel: String,
   vehicleNumber: String,
   from: { type: String, default: "" },   // departure city / starting point
+  fromLat: Number,                        // departure latitude (for passenger map)
+  fromLng: Number,                        // departure longitude (for passenger map)
   destination: String,
   destLat: Number,
   destLng: Number,
@@ -406,7 +408,7 @@ app.post("/toggle-online", auth, async (req, res) => {
 // PUBLISH ROUTE
 app.post("/publish-route", auth, async (req, res) => {
   const { email: driverEmail, name: driverName } = req.user;
-  const { from, destination, destLat, destLng, seats, time, fare } = req.body;
+  const { from, destination, destLat, destLng, fromLat, fromLng, seats, time, fare } = req.body;
 
   try {
     const driverUser = await User.findOne({ email: driverEmail });
@@ -424,6 +426,8 @@ app.post("/publish-route", auth, async (req, res) => {
       vehicleModel,
       vehicleNumber,
       from: from || "",
+      fromLat: fromLat ? parseFloat(fromLat) : null,
+      fromLng: fromLng ? parseFloat(fromLng) : null,
       destination,
       destLat,
       destLng,
@@ -515,8 +519,10 @@ app.post("/arrive-passenger", auth, async (req, res) => {
   const { email: driverEmail } = req.user;
   const { passengerEmail } = req.body;
   try {
+    // BUG FIX: also search in_progress rides — driver may have already pressed
+    // "Start Trajectory" before marking individual passengers as arrived.
     const ride = await Ride.findOneAndUpdate(
-      { driverEmail, status: "active", "requests.email": passengerEmail },
+      { driverEmail, status: { $in: ["active", "in_progress"] }, "requests.email": passengerEmail },
       { $set: { "requests.$.status": "arrived" } },
       { new: true }
     );
@@ -718,7 +724,8 @@ app.post("/accept-passenger", auth, async (req, res) => {
       ride.seats -= 1;
       await ride.save();
 
-      // Push to the passenger instantly
+      // Push to the passenger instantly — include departure coords so passenger
+      // map can draw the full A→B route line, not just a destination dot.
       io.to(passengerEmail).emit("ride_accepted", {
         driverName,
         driverEmail,
@@ -727,6 +734,8 @@ app.post("/accept-passenger", auth, async (req, res) => {
         destination: ride.destination,
         destLat: ride.destLat,
         destLng: ride.destLng,
+        fromLat: ride.fromLat,
+        fromLng: ride.fromLng,
         message: "Your ride has been accepted!"
       });
 
@@ -887,20 +896,43 @@ app.get("/my-ride-status", auth, async (req, res) => {
   const { email: passengerEmail } = req.user;
   const { rideId } = req.query;
   try {
-    const ride = await Ride.findById(rideId);
-    if (!ride) return res.json({ status: "driver_ended" });
-    const myReq = ride.requests.find(r => r.email === passengerEmail);
-    if (!myReq) return res.json({ status: "not_found" });
-    res.json({
-      status: myReq.status,         // "pending" | "accepted"
-      driverName: ride.driverName,
-      driverEmail: ride.driverEmail,
-      destination: ride.destination,
-      destLat: ride.destLat,
-      destLng: ride.destLng,
-      vehicleModel: ride.vehicleModel,
-      vehicleNumber: ride.vehicleNumber
-    });
+    // ── Try Route Share first ──────────────────────────────────────────────
+    const ride = await Ride.findById(rideId).catch(() => null);
+    if (ride) {
+      const myReq = ride.requests.find(r => r.email === passengerEmail);
+      if (!myReq) return res.json({ status: "not_found" });
+      return res.json({
+        status: myReq.status,         // "pending" | "accepted" | "arrived" | "paid"
+        rideType: "route_share",
+        driverName: ride.driverName,
+        driverEmail: ride.driverEmail,
+        destination: ride.destination,
+        destLat: ride.destLat,
+        destLng: ride.destLng,
+        fromLat: ride.fromLat,
+        fromLng: ride.fromLng,
+        vehicleModel: ride.vehicleModel,
+        vehicleNumber: ride.vehicleNumber
+      });
+    }
+
+    // ── Fallback: check Quick Drop (passengers store a QuickRequest._id) ──
+    const quickReq = await QuickRequest.findById(rideId).catch(() => null);
+    if (quickReq && quickReq.passengerEmail === passengerEmail) {
+      // Map QuickRequest status to the passenger UI expectations
+      const terminalStatuses = ["completed", "rejected"];
+      if (terminalStatuses.includes(quickReq.status)) {
+        return res.json({ status: "driver_ended", rideType: "quick_drop" });
+      }
+      return res.json({
+        status: quickReq.status,   // "pending" | "accepted" | "arrived" | "in_progress" | "payment_pending"
+        rideType: "quick_drop",
+        driverEmail: quickReq.driverEmail
+      });
+    }
+
+    // Neither collection has this ID — ride is gone
+    return res.json({ status: "driver_ended" });
   } catch (err) {
     res.status(500).json({ message: "Error fetching status" });
   }

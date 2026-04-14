@@ -531,27 +531,37 @@ window.onload = function () {
                     if (actionBtn) {
                         if (mission.status === "in_progress") {
                             actionBtn.innerHTML = "💰 Settle Payments";
-                            actionBtn.style.background = "#f39c12"; // Orange
+                            actionBtn.style.background = "#f39c12";
+                            // BUG FIX: restore correct onclick for this status
+                            actionBtn.onclick = requestPaymentsPhase;
                         } else if (mission.status === "payment_pending") {
                             actionBtn.innerHTML = "🏁 Close Mission";
-                            actionBtn.style.background = "#2ecc71"; // Green
+                            actionBtn.style.background = "#2ecc71";
+                            actionBtn.onclick = closeMissionPhase;
                         } else {
                             actionBtn.innerHTML = "► Start Trajectory";
-                            actionBtn.style.background = "#4e69e2"; // Blue
+                            actionBtn.style.background = "#4e69e2";
+                            actionBtn.onclick = handleMissionAction;
                         }
                     }
 
                     const dest = mission.destination;
                     localStorage.setItem("activeMissionDestination", dest);
-                    
-                    // Use coordinates if available, otherwise try localStorage fallback
-                    const destCoords = (mission.destLat && mission.destLng) 
+
+                    // BUG FIX: use the stored driver departure coords as map origin.
+                    // CAMPUS_COORDS was always used before, giving wrong routes for
+                    // intercity trips (e.g. Vadnagar → Ganpat started from campus).
+                    const storedFromLat = parseFloat(localStorage.getItem("activeMissionFromLat"));
+                    const storedFromLng = parseFloat(localStorage.getItem("activeMissionFromLng"));
+                    const mapOrigin = (storedFromLat && storedFromLng)
+                        ? { lat: storedFromLat, lng: storedFromLng }
+                        : CAMPUS_COORDS;
+
+                    const destCoords = (mission.destLat && mission.destLng)
                         ? { lat: mission.destLat, lng: mission.destLng }
-                        : localStorage.getItem("activeMissionDestLat")
-                            ? { lat: parseFloat(localStorage.getItem("activeMissionDestLat")), lng: parseFloat(localStorage.getItem("activeMissionDestLng")) }
-                            : dest;
-                    
-                    drawRouteMap("cc-map-container", CAMPUS_COORDS, destCoords, (dur, dist) => {
+                        : dest;
+
+                    drawRouteMap("cc-map-container", mapOrigin, destCoords, (dur, dist) => {
                         const etaWrap = document.getElementById("cc-eta-wrap");
                         const etaEl = document.getElementById("cc-eta");
                         if (etaWrap && etaEl) {
@@ -564,7 +574,12 @@ window.onload = function () {
                     // Network failure — fall back to socket-based restore
                     document.getElementById("cc-destination").innerText = "Resumed Trajectory";
                     const savedDest = localStorage.getItem("activeMissionDestination");
-                    if (savedDest) drawRouteMap("cc-map-container", CAMPUS_COORDS, savedDest, (dur) => {
+                    const savedFromLat = parseFloat(localStorage.getItem("activeMissionFromLat"));
+                    const savedFromLng = parseFloat(localStorage.getItem("activeMissionFromLng"));
+                    const fallbackOrigin = (savedFromLat && savedFromLng)
+                        ? { lat: savedFromLat, lng: savedFromLng }
+                        : CAMPUS_COORDS;
+                    if (savedDest) drawRouteMap("cc-map-container", fallbackOrigin, savedDest, (dur) => {
                         const etaEl = document.getElementById("cc-eta");
                         const etaWrap = document.getElementById("cc-eta-wrap");
                         if (etaEl && etaWrap) { etaEl.innerText = dur; etaWrap.classList.remove("hidden"); }
@@ -588,8 +603,13 @@ window.onload = function () {
                             localStorage.setItem("passengerRideDestLat", data.destLat);
                             localStorage.setItem("passengerRideDestLng", data.destLng);
                         }
+                        // BUG FIX: persist departure coords from my-ride-status response
+                        if (data.fromLat && data.fromLng) {
+                            localStorage.setItem("passengerRideDepartureLat", data.fromLat);
+                            localStorage.setItem("passengerRideDepartureLng", data.fromLng);
+                        }
                         _applyRideAccepted(data.driverName, data.driverEmail, data.destination, data.vehicleModel, data.vehicleNumber);
-                        
+
                         // If arrived, also show the arrived notification state
                         if (data.status === 'arrived') {
                             const text = document.getElementById("pickup-status-text");
@@ -806,13 +826,20 @@ function listenForRideStatusUpdates(rideId) {
     socket.on("ride_accepted", (data) => {
         // Use destination from socket event, fallback to localStorage
         const destination = data.destination || localStorage.getItem("passengerRideDestination");
-        
-        // Store destination coordinates from socket event for future use
+
+        // Store destination coordinates from socket event
         if (data.destLat && data.destLng) {
             localStorage.setItem("passengerRideDestLat", data.destLat);
             localStorage.setItem("passengerRideDestLng", data.destLng);
         }
-        
+
+        // BUG FIX: store driver departure coordinates so the passenger map can
+        // draw the full A→B route line rather than just a destination dot.
+        if (data.fromLat && data.fromLng) {
+            localStorage.setItem("passengerRideDepartureLat", data.fromLat);
+            localStorage.setItem("passengerRideDepartureLng", data.fromLng);
+        }
+
         _applyRideAccepted(data.driverName, data.driverEmail, destination, data.vehicleModel, data.vehicleNumber);
         if (getSetting('notifStatus', true)) showNotification(data.message, 'success', 6000);
     });
@@ -1120,7 +1147,13 @@ function showPage(pageName) {
         return;
     }
 
-    if (isMissionActive && pageName !== 'driver-command-center' && pageName !== 'profile') {
+    // BUG FIX: Allow navigation to all internal driver workflow pages during an
+    // active mission. Only block user-initiated tab switches to unrelated pages.
+    const driverMissionPages = [
+        'driver-command-center', 'driver-picking-up',
+        'driver-ride-started', 'driver-payment', 'profile'
+    ];
+    if (isMissionActive && !driverMissionPages.includes(pageName)) {
         showNotification("Active Trajectory! You must 'Abort Mission' before switching tabs.", 'warning');
         return;
     }
@@ -1463,10 +1496,23 @@ function publishRoute() {
         localStorage.setItem("activeMissionDestLat", destLat);
         localStorage.setItem("activeMissionDestLng", destLng);
     }
+    // BUG FIX: store the real departure coords for Command Center map origin on refresh
+    if (chosenFromPlace && chosenFromPlace.geometry && chosenFromPlace.geometry.location) {
+        localStorage.setItem("activeMissionFromLat", chosenFromPlace.geometry.location.lat);
+        localStorage.setItem("activeMissionFromLng", chosenFromPlace.geometry.location.lng);
+    } else {
+        localStorage.removeItem("activeMissionFromLat");
+        localStorage.removeItem("activeMissionFromLng");
+    }
 
     authFetch(`${API_BASE_URL}/publish-route`, {
         method: "POST",
-        body: JSON.stringify({ from, destination, destLat, destLng, seats, time, fare })
+        body: JSON.stringify({
+            from, destination, destLat, destLng,
+            fromLat: chosenFromPlace?.geometry?.location?.lat || null,
+            fromLng: chosenFromPlace?.geometry?.location?.lng || null,
+            seats, time, fare
+        })
     })
         .then(res => res.json())
         .then(() => {
@@ -1495,16 +1541,18 @@ function publishRoute() {
                 });
             };
 
+            // BUG FIX: when GPS is denied, fall back to the driver's typed departure
+            // city (chosenFromPlace), then CAMPUS_COORDS. Never use destLat/destLng
+            // as the origin — that makes OSRM route from A→A producing no line.
+            const gpsFailOrigin = (chosenFromPlace?.geometry?.location)
+                ? { lat: chosenFromPlace.geometry.location.lat, lng: chosenFromPlace.geometry.location.lng }
+                : CAMPUS_COORDS;
+
             let mapDrawn = false;
             const fallbackTimer = setTimeout(() => {
-                // No GPS in time — centre on the destination itself so the map
-                // shows the right area rather than snapping to campus.
                 if (!mapDrawn) {
                     mapDrawn = true;
-                    const fallbackOrigin = (destLat && destLng)
-                        ? { lat: destLat, lng: destLng }
-                        : CAMPUS_COORDS;
-                    finalizePublishMap(fallbackOrigin);
+                    finalizePublishMap(gpsFailOrigin);
                 }
             }, 3000);
 
@@ -1521,10 +1569,6 @@ function publishRoute() {
                         if (!mapDrawn) {
                             mapDrawn = true;
                             clearTimeout(fallbackTimer);
-                            // GPS denied — show the destination area, not campus
-                            const gpsFailOrigin = (destLat && destLng)
-                                ? { lat: destLat, lng: destLng }
-                                : CAMPUS_COORDS;
                             finalizePublishMap(gpsFailOrigin);
                         }
                     },
@@ -1533,8 +1577,7 @@ function publishRoute() {
             } else {
                 mapDrawn = true;
                 clearTimeout(fallbackTimer);
-                const noGpsOrigin = (destLat && destLng) ? { lat: destLat, lng: destLng } : CAMPUS_COORDS;
-                finalizePublishMap(noGpsOrigin);
+                finalizePublishMap(gpsFailOrigin);
             }
         });
 }
