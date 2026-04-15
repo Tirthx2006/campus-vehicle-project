@@ -15,6 +15,17 @@ console.log("=== THE BACKEND FILE IS RUNNING ===");
 console.log("DEBUG: Testing MONGO_URI value ->", process.env.MONGO_URI ? "Found ✅" : "NOT FOUND ❌");
 console.log("DEBUG: Testing JWT_SECRET value ->", process.env.JWT_SECRET ? "Found ✅" : "NOT FOUND ❌");
 
+const nodemailer = require("nodemailer");
+
+// Initialize the transporter HERE, in the global scope
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));  // Allow base64-encoded QR images
@@ -41,11 +52,51 @@ io.use((socket, next) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────
+// DISCONNECT GRACE TIMERS
+// If a user disconnects, we wait 30 s before acting.
+// If they reconnect within that window the timer is cancelled.
+// ─────────────────────────────────────────────────────────
+const disconnectTimers = new Map(); // email → NodeJS timer id
+
 io.on("connection", (socket) => {
   // Join room automatically based on verified email from token
   const userEmail = socket.user.email;
   socket.join(userEmail);
   console.log(`Verified Socket: ${userEmail} connected.`);
+
+  // ── Cancel any pending disconnect timer ──────────────────
+  if (disconnectTimers.has(userEmail)) {
+    clearTimeout(disconnectTimers.get(userEmail));
+    disconnectTimers.delete(userEmail);
+    console.log(`${userEmail} reconnected — disconnect timer cancelled.`);
+    // Notify the other party (driver or passenger) that they're back
+    (async () => {
+      try {
+        // Were they a passenger in a route-share ride?
+        const rideAsP = await Ride.findOne({
+          "requests.email": userEmail,
+          status: { $in: ["active", "in_progress", "payment_pending"] }
+        });
+        if (rideAsP) io.to(rideAsP.driverEmail).emit("peer_reconnected", { who: "passenger", email: userEmail });
+
+        // Were they a driver?
+        const rideAsD = await Ride.findOne({ driverEmail: userEmail, status: { $in: ["active", "in_progress", "payment_pending"] } });
+        if (rideAsD) {
+          rideAsD.requests.filter(r => ["accepted", "arrived"].includes(r.status)).forEach(r => {
+            io.to(r.email).emit("peer_reconnected", { who: "driver", email: userEmail });
+          });
+        }
+
+        // Quick drop
+        const qdAsP = await QuickRequest.findOne({ passengerEmail: userEmail, status: { $in: ["accepted", "arrived", "in_progress", "payment_pending"] } });
+        if (qdAsP) io.to(qdAsP.driverEmail).emit("peer_reconnected", { who: "passenger", email: userEmail });
+
+        const qdAsD = await QuickRequest.findOne({ driverEmail: userEmail, status: { $in: ["accepted", "arrived", "in_progress", "payment_pending"] } });
+        if (qdAsD) io.to(qdAsD.passengerEmail).emit("peer_reconnected", { who: "driver", email: userEmail });
+      } catch (e) { /* silent */ }
+    })();
+  }
 
   // Driver reconnecting after a page refresh — send their current pending/active requests
   socket.on("request_current_rides", async ({ driverEmail }) => {
@@ -81,7 +132,91 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("Socket disconnected:", socket.id);
+    console.log("Socket disconnected:", userEmail);
+
+    const GRACE_MS = 30000; // 30-second reconnect window
+
+    const timer = setTimeout(async () => {
+      disconnectTimers.delete(userEmail);
+      console.log(`${userEmail} confirmed gone after grace period.`);
+
+      try {
+        // ── Driver left ──────────────────────────────────────────────────────
+        const rideAsDriver = await Ride.findOne({
+          driverEmail: userEmail,
+          status: { $in: ["active", "in_progress", "payment_pending"] }
+        });
+        if (rideAsDriver) {
+          rideAsDriver.requests
+            .filter(r => ["accepted", "arrived", "paid"].includes(r.status))
+            .forEach(r => {
+              io.to(r.email).emit("ride_cancelled", {
+                message: "The driver has disconnected. The trip has been cancelled."
+              });
+            });
+          await Ride.updateMany(
+            { driverEmail: userEmail, status: { $in: ["active", "in_progress", "payment_pending"] } },
+            { status: "cancelled" }
+          );
+          await User.findOneAndUpdate({ email: userEmail }, { isOnline: false });
+        }
+
+        // ── Passenger left a route-share ride ────────────────────────────────
+        const rideAsPassenger = await Ride.findOne({
+          "requests.email": userEmail,
+          "requests.status": { $in: ["accepted", "arrived"] },
+          status: { $in: ["active", "in_progress"] }
+        });
+        if (rideAsPassenger) {
+          io.to(rideAsPassenger.driverEmail).emit("passenger_disconnected", {
+            message: `A passenger has disconnected from your trajectory.`,
+            passengerEmail: userEmail
+          });
+        }
+
+        // ── Passenger left a quick drop ──────────────────────────────────────
+        const qdAsPassenger = await QuickRequest.findOne({
+          passengerEmail: userEmail,
+          status: { $in: ["pending", "accepted", "arrived", "in_progress", "payment_pending"] }
+        });
+        if (qdAsPassenger) {
+          io.to(qdAsPassenger.driverEmail).emit("passenger_disconnected", {
+            message: `Quick-drop passenger has disconnected.`,
+            passengerEmail: userEmail,
+            requestId: qdAsPassenger._id
+          });
+          // Auto-cancel the quick drop after an additional 30 s if passenger never returns
+          setTimeout(async () => {
+            const still = await QuickRequest.findOne({
+              _id: qdAsPassenger._id,
+              status: { $in: ["pending", "accepted"] }
+            });
+            if (still) {
+              await QuickRequest.findByIdAndUpdate(qdAsPassenger._id, { status: "cancelled" });
+              io.to(qdAsPassenger.driverEmail).emit("quick_drop_completed", {
+                message: "Passenger did not return. Drop has been auto-cancelled."
+              });
+            }
+          }, 30000);
+        }
+
+        // ── Driver left a quick drop ─────────────────────────────────────────
+        const qdAsDriver = await QuickRequest.findOne({
+          driverEmail: userEmail,
+          status: { $in: ["accepted", "arrived", "in_progress", "payment_pending"] }
+        });
+        if (qdAsDriver) {
+          io.to(qdAsDriver.passengerEmail).emit("ride_cancelled", {
+            message: "The driver has disconnected. Your quick drop has been cancelled."
+          });
+          await QuickRequest.findByIdAndUpdate(qdAsDriver._id, { status: "cancelled" });
+        }
+      } catch (err) {
+        console.error("Disconnect cleanup error:", err);
+      }
+    }, GRACE_MS);
+
+    disconnectTimers.set(userEmail, timer);
   });
 });
 
@@ -95,6 +230,11 @@ mongoose.connect(process.env.MONGO_URI)
 // ─────────────────────────────────────────────────────────
 // SCHEMAS
 // ─────────────────────────────────────────────────────────
+// Platform fee: 10% of driver earnings per month
+const PLATFORM_FEE_PERCENT = 10;
+// Fallback fare for quick drop (used in trip history formatting)
+const QUICK_DROP_FARE = 30;
+
 const UserSchema = new mongoose.Schema({
   name: String,
   email: { type: String, unique: true, required: true },
@@ -103,6 +243,8 @@ const UserSchema = new mongoose.Schema({
   isCampusDriver: { type: Boolean, default: false },
   isOnline: { type: Boolean, default: false },
   currentRideID: { type: mongoose.Schema.Types.ObjectId, ref: "Ride", default: null },
+  resetOtp: String,
+  resetOtpExpire: Date,
   driverDetails: {
     licenseNumber: String,
     vehicleModel: String,
@@ -112,6 +254,35 @@ const UserSchema = new mongoose.Schema({
     qrPhoto: String
   }
 });
+
+// ── Revenue / Earnings tracking schema ──────────────────────────────────────
+// Every time a driver collects a fare (cash or UPI) we append an entry here.
+// The platform fee endpoint reads this collection to bill the driver monthly.
+const EarningSchema = new mongoose.Schema({
+  driverEmail: { type: String, required: true, index: true },
+  passengerEmail: String,
+  rideType: { type: String, enum: ["route_share", "quick_drop"] },
+  fare: { type: Number, default: 0 },
+  paymentMethod: { type: String, enum: ["cash", "upi"], default: "cash" },
+  rideId: String,           // Ride._id or QuickRequest._id (string for cross-collection)
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Earning = mongoose.model("Earning", EarningSchema, "earnings");
+
+// ── Fare-negotiation schema for Quick Drop ───────────────────────────────────
+// When a driver proposes a fare, passenger can counter or accept before ride starts.
+const FareNegotiationSchema = new mongoose.Schema({
+  requestId: { type: String, required: true, unique: true },
+  driverEmail: String,
+  passengerEmail: String,
+  proposedFare: Number,
+  counterFare: { type: Number, default: null },
+  status: { type: String, enum: ["pending_passenger", "countered", "accepted", "rejected"], default: "pending_passenger" },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const FareNegotiation = mongoose.model("FareNegotiation", FareNegotiationSchema, "fare_negotiations");
 
 const User = mongoose.model("User", UserSchema, "users");
 
@@ -275,6 +446,70 @@ app.post("/login", authLimiter, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────
+// FORGOT PASSWORD PIPELINE
+// ─────────────────────────────────────────────────────────
+
+// Generate OTP and send email
+app.post("/forgot-password", authLimiter, async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "If that email is registered, an OTP will be sent." });
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetOtp = otp;
+    user.resetOtpExpire = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+    await user.save();
+
+    await transporter.sendMail({
+      from: `"BROSKI Support" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "BROSKI - Password Reset OTP",
+      text: `Your password reset OTP is: ${otp}\n\nIt is valid for 10 minutes. Do not share this code with anyone.`
+    });
+
+    res.json({ message: "OTP sent to your email." });
+  } catch (err) {
+    console.error("Forgot Password Error:", err);
+    res.status(500).json({ message: "Error sending OTP. Try again later." });
+  }
+});
+
+// Verify OTP and Reset Password
+app.post("/reset-password", authLimiter, async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  // Basic security validation
+  const pwRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^])[A-Za-z\d@$!%*?&#^]{8,}$/;
+  if (!pwRegex.test(newPassword)) {
+    return res.status(400).json({ message: "New password does not meet security requirements." });
+  }
+
+  try {
+    const user = await User.findOne({
+      email,
+      resetOtp: otp,
+      resetOtpExpire: { $gt: Date.now() } // Ensure it hasn't expired
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired OTP." });
+    }
+
+    // Hash new password and clear OTP fields
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetOtp = undefined;
+    user.resetOtpExpire = undefined;
+    await user.save();
+
+    res.json({ message: "Password reset successful!" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error during reset." });
+  }
+});
+
 // Search routes is public — passengers browse without logging in
 app.get("/search-routes", async (req, res) => {
   const { destination, lat, lng } = req.query;
@@ -387,6 +622,17 @@ app.post("/update-profile", auth, async (req, res) => {
     const user = await User.findOneAndUpdate({ email }, { gender }, { new: true });
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json({ message: "Profile updated successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.get("/get-driver-profile", auth, async (req, res) => {
+  const { email } = req.user;
+  try {
+    const user = await User.findOne({ email }).select("driverDetails");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user.driverDetails || {});
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
@@ -606,7 +852,7 @@ app.post("/request-payment", auth, async (req, res) => {
     );
     if (!ride) return res.status(404).json({ message: "Route not in progress" });
 
-    ride.requests.filter(r => r.status === "accepted").forEach(r => {
+    ride.requests.filter(r => r.status === "accepted" || r.status === "arrived").forEach(r => {
       io.to(r.email).emit("payment_requested", { fare: ride.fare, type: "route_share", upiId, qrPhoto });
     });
     res.json({ message: "Payments requested" });
@@ -641,11 +887,23 @@ app.post("/request-quick-payment", auth, async (req, res) => {
 // PASSENGER PAID
 app.post("/passenger-paid", auth, async (req, res) => {
   const { email: passengerEmail } = req.user;
-  const { type, rideId } = req.body;
+  const { type, rideId, paymentMethod = "cash" } = req.body;
 
   try {
     if (type === "quick_drop") {
       const qReq = await QuickRequest.findById(rideId);
+      if (!qReq) return res.status(404).json({ message: "Request not found" });
+
+      // Record the earning for revenue tracking
+      await Earning.create({
+        driverEmail: qReq.driverEmail,
+        passengerEmail,
+        rideType: "quick_drop",
+        fare: qReq.fare || 0,
+        paymentMethod,
+        rideId: rideId.toString()
+      });
+
       io.to(qReq.driverEmail).emit("passenger_paid", { passengerEmail, type, requestId: rideId });
       res.json({ message: "Marked paid" });
     } else {
@@ -653,10 +911,23 @@ app.post("/passenger-paid", auth, async (req, res) => {
         { _id: rideId, status: "payment_pending", "requests.email": passengerEmail },
         { $set: { "requests.$.status": "paid" } }
       );
+      if (!ride) return res.status(404).json({ message: "Ride or request not found" });
+
+      // Record the earning for revenue tracking
+      await Earning.create({
+        driverEmail: ride.driverEmail,
+        passengerEmail,
+        rideType: "route_share",
+        fare: ride.fare || 0,
+        paymentMethod,
+        rideId: rideId.toString()
+      });
+
       io.to(ride.driverEmail).emit("passenger_paid", { passengerEmail, type });
       res.json({ message: "Marked paid" });
     }
   } catch (err) {
+    console.error("passenger-paid error:", err);
     res.status(500).json({ message: "Error updating payment" });
   }
 });
@@ -813,6 +1084,11 @@ app.post("/leave-ride", auth, async (req, res) => {
     const ride = await Ride.findById(rideId);
     if (!ride) return res.json({ message: "Ride already gone" });
 
+    // Block leaving once the journey is underway — unfair to driver mid-trip
+    if (ride.status === 'in_progress' || ride.status === 'payment_pending') {
+      return res.status(400).json({ message: "Cannot leave during an active ride. Please settle payment first." });
+    }
+
     const requestIndex = ride.requests.findIndex(r => r.email === passengerEmail);
     if (requestIndex !== -1) {
       if (ride.requests[requestIndex].status === "accepted") {
@@ -876,10 +1152,14 @@ app.post("/accept-quick-drop", auth, async (req, res) => {
 
     if (!quickReq) return res.status(404).json({ message: "Request not found" });
 
-    // Push to the passenger instantly
+    // Push to the passenger instantly - include negotiated fare and vehicle info
+    const driverUser = await User.findOne({ email: driverEmail });
     io.to(quickReq.passengerEmail).emit("quick_drop_accepted", {
       driverName,
       driverEmail,
+      fare: quickReq.fare,
+      vehicleModel: driverUser?.driverDetails?.vehicleModel || "Vehicle",
+      vehicleNumber: driverUser?.driverDetails?.vehicleNumber || "Unknown Plate",
       message: "Your quick drop was accepted!"
     });
 
@@ -928,9 +1208,18 @@ app.get("/my-ride-status", auth, async (req, res) => {
     if (ride) {
       const myReq = ride.requests.find(r => r.email === passengerEmail);
       if (!myReq) return res.json({ status: "not_found" });
+
+      // If the ride is in payment_pending but the request is still "accepted" or "arrived"
+      // (request-level status only advances to "paid" after passenger confirms),
+      // we must surface "payment_pending" so the passenger's reload shows the payment page.
+      let effectiveStatus = myReq.status;
+      if (ride.status === 'payment_pending' && ['accepted', 'arrived'].includes(myReq.status)) {
+        effectiveStatus = 'payment_pending';
+      }
+
       const driver = await User.findOne({ email: ride.driverEmail });
       return res.json({
-        status: myReq.status,         // "pending" | "accepted" | "arrived" | "paid" | "in_progress" | "payment_pending"
+        status: effectiveStatus,         // "pending" | "accepted" | "arrived" | "paid" | "in_progress" | "payment_pending"
         rideType: "route_share",
         driverName: ride.driverName,
         driverEmail: ride.driverEmail,
@@ -1103,5 +1392,39 @@ app.get("/my-trips", auth, async (req, res) => {
   } catch (err) {
     console.error("My trips error:", err);
     res.status(500).json({ message: "Could not fetch trip history" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────
+// MY EARNINGS — driver's fare history + platform fee summary
+// Platform takes PLATFORM_FEE_PERCENT (10%) of monthly gross.
+// ─────────────────────────────────────────────────────────
+app.get("/my-earnings", auth, async (req, res) => {
+  const { email: driverEmail } = req.user;
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const allEarnings = await Earning.find({ driverEmail })
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean();
+
+    const monthEarnings = allEarnings.filter(e => new Date(e.createdAt) >= startOfMonth);
+    const totalMonthly = monthEarnings.reduce((s, e) => s + (e.fare || 0), 0);
+    const platformFee = parseFloat((totalMonthly * PLATFORM_FEE_PERCENT / 100).toFixed(2));
+    const netMonthly = parseFloat((totalMonthly - platformFee).toFixed(2));
+    const totalAllTime = parseFloat(allEarnings.reduce((s, e) => s + (e.fare || 0), 0).toFixed(2));
+
+    res.json({
+      earnings: allEarnings.slice(0, 30),   // last 30 for display
+      totalMonthly: parseFloat(totalMonthly.toFixed(2)),
+      platformFee,
+      netMonthly,
+      totalAllTime
+    });
+  } catch (err) {
+    console.error("My earnings error:", err);
+    res.status(500).json({ message: "Could not fetch earnings" });
   }
 });

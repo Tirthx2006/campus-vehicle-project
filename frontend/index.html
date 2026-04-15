@@ -4,10 +4,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campus Vehicle booking & management system</title>
+    <title>BROSKI – Your Ride Bro 🚀</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
     <style>
         .map-container {
             width: 100%;
@@ -397,74 +402,283 @@
             gap: 10px;
             margin-top: 20px;
         }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        body {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            /* Horizontal Center */
+            justify-content: center !important;
+            /* Vertical Center */
+            min-height: 100vh;
+        }
+
+        /* ══════════════════════════════════════════════════ */
+        /* BRANDING FIX (Handles the Logo Image)              */
+        /* ══════════════════════════════════════════════════ */
+        .broski-logo-img {
+            max-width: 280px;
+            /* Scaled down for better balance */
+            width: 100%;
+            height: auto;
+            margin: 0 auto 4px auto;
+            display: block;
+            filter: drop-shadow(0 0 20px rgba(138, 43, 226, 0.3));
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .broski-brand-wrapper {
+            margin-top: -20px;
+            /* Pull the whole brand up slightly */
+            margin-bottom: 20px;
+        }
+
+        .broski-logo-img:hover {
+            transform: scale(1.05) rotate(-2deg);
+        }
+
+        .broski-tagline {
+            font-size: 11px;
+            font-weight: 900;
+            color: #6366f1;
+            /* Vivid Indigo - works on white and dark */
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            margin-top: 0;
+            text-align: center;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            opacity: 1;
+            display: block;
+        }
+
+        /* Auth page branding block */
+        .auth-brand {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        /* Home page hero branding */
+        .home-hero {
+            text-align: center;
+            padding: 20px 20px 0;
+        }
+
+        .home-hero .broski-tagline {
+            margin-bottom: 4px;
+        }
+
+        /* ══ FORGOT PASSWORD MODAL ══ */
+        #forgot-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100001;
+            padding: 20px;
+        }
+
+        #forgot-modal.hidden {
+            display: none;
+        }
+
+        .forgot-box {
+            background: #fff;
+            border-radius: 24px;
+            padding: 28px 24px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+            animation: toastIn .25s cubic-bezier(.21, 1.02, .73, 1) forwards;
+        }
+
+        .forgot-box h3 {
+            font-size: 18px;
+            font-weight: 800;
+            color: #1a1a2e;
+            margin: 0 0 6px;
+        }
+
+        .forgot-box p {
+            font-size: 13px;
+            color: #888;
+            margin: 0 0 18px;
+        }
+
+        .forgot-box input {
+            width: 100%;
+            padding: 13px 16px;
+            border: 2px solid #e0e4ff;
+            border-radius: 14px;
+            font-size: 14px;
+            color: #222;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            margin-bottom: 12px;
+        }
+
+        .forgot-box input:focus {
+            border-color: #4e69e2;
+        }
+
+        .forgot-box .step {
+            display: none;
+        }
+
+        .forgot-box .step.active {
+            display: block;
+        }
+
+        .forgot-modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .forgot-modal-actions button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 14px;
+            border: none;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+
+        .forgot-modal-actions button:hover {
+            opacity: 0.85;
+        }
+
+        #fp-submit-btn {
+            background: linear-gradient(135deg, #4e69e2, #2ecc71);
+            color: #fff;
+        }
+
+        #fp-cancel-btn,
+        #fp-cancel-btn2,
+        #fp-cancel-btn3 {
+            background: #f0f0f0;
+            color: #555;
+        }
+
+        /* ══ EARNINGS PAGE ══ */
+        .earn-stat-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .earn-stat {
+            background: linear-gradient(135deg, rgba(78, 105, 226, 0.08), rgba(46, 204, 113, 0.08));
+            border: 1px solid rgba(78, 105, 226, 0.15);
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .earn-stat-val {
+            font-size: 24px;
+            font-weight: 900;
+            color: #1a1a2e;
+            margin-bottom: 4px;
+        }
+
+        .earn-stat-val.green {
+            color: #2ecc71;
+        }
+
+        .earn-stat-val.red {
+            color: #f44336;
+        }
+
+        .earn-stat-lbl {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            font-weight: 700;
+        }
+
+        .earn-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 11px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+
+        .earn-row:last-child {
+            border-bottom: none;
+        }
+
+        .earn-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-weight: 700;
+        }
+
+        .earn-badge.qs {
+            background: rgba(78, 105, 226, 0.12);
+            color: #4e69e2;
+        }
+
+        .earn-badge.qd {
+            background: rgba(46, 204, 113, 0.12);
+            color: #1a8a4a;
+        }
+
+        .earn-badge.cash {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .earn-badge.upi {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .earn-not-driver {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .earn-not-driver .big-icon {
+            font-size: 52px;
+            margin-bottom: 12px;
+        }
+
+        .earn-not-driver h3 {
+            color: #2b3467;
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .earn-not-driver p {
+            color: #888;
+            font-size: 14px;
+            line-height: 1.6;
+        }
     </style>
 </head>
 
 <body>
 
-    <!-- ══════════════════ SIGNUP PAGE ══════════════════ -->
-    <div id="signup-page" class="auth-card">
-        <h2>Sign in / Log in</h2>
-        <div class="input-group">
-            <label>Name</label>
-            <input type="text" id="signup-name" placeholder="Enter your name">
-        </div>
-        <div class="input-group">
-            <label>Email</label>
-            <input type="email" id="signup-email" placeholder="Enter your email">
-        </div>
-        <div class="input-group">
-            <label>Password</label>
-            <div style="position:relative;">
-                <input type="password" id="signup-password" placeholder="••••••••"
-                    onkeyup="checkPasswordStrength(this.value)">
-                <span onclick="togglePassword('signup-password',this)"
-                    style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px;">👁️</span>
-            </div>
-            <div id="password-rules" style="font-size:11px;color:#f44336;margin-top:8px;line-height:1.5;">
-                <div id="rule-length">❌ Min 8 characters</div>
-                <div id="rule-upper">❌ 1 uppercase letter</div>
-                <div id="rule-lower">❌ 1 lowercase letter</div>
-                <div id="rule-number">❌ 1 number</div>
-                <div id="rule-special">❌ 1 special character (@$!%*?&#^)</div>
-            </div>
-        </div>
-        <div class="input-group">
-            <label>Gender</label>
-            <select id="signup-gender" style="width:100%;padding:12px;border-radius:12px;border:1px solid #ddd;">
-                <option value="">Select Gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-            </select>
-        </div>
-        <button class="btn-primary" id="signup-btn" onclick="signupUser()">Sign up</button>
-        <div class="divider"><span>Or</span></div>
-        <div class="social-container">
-            <button class="btn-social"><img src="https://www.google.com/favicon.ico" width="14"> Google</button>
-            <button class="btn-social"><img src="https://www.apple.com/favicon.ico" width="14"> Apple</button>
-        </div>
-        <div class="footer-text">Have an account? <span onclick="goToLogin()">Log In</span></div>
-    </div>
 
-    <!-- ══════════════════ LOGIN PAGE ══════════════════ -->
-    <div id="login-page" class="auth-card hidden">
-        <h2>Log in</h2>
-        <div class="input-group">
-            <label>Email</label>
-            <input type="email" id="login-email" placeholder="Enter your email">
-        </div>
-        <div class="input-group">
-            <label>Password</label>
-            <div style="position:relative;">
-                <input type="password" id="login-password" placeholder="••••••••">
-                <span onclick="togglePassword('login-password',this)"
-                    style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px;">👁️</span>
-            </div>
-        </div>
-        <button class="btn-primary" id="login-btn" onclick="loginUser()">Log In</button>
-        <div class="footer-text">Don't have an account? <span onclick="goToSignup()">Sign Up</span></div>
-    </div>
+    <!-- ══════════════════ DASHBOARD APP SHELL ══════════════════ -->
 
     <!-- ══════════════════ SIDEBAR ══════════════════ -->
     <div id="side-menu" class="side-menu">
@@ -476,14 +690,17 @@
                 <h4 id="side-name">User Name</h4>
                 <p id="side-gender-display" style="color:#666;font-size:14px;margin:0;">Gender: ---</p>
             </div>
-            <button class="close-btn" onclick="toggleSidebar()">×</button>
+            <button class="close-btn" onclick="toggleSidebar()">✕</button>
         </div>
         <div class="side-links">
+            <div class="side-item" onclick="showPage('home');toggleSidebar()"><span class="icon">🏠</span> Home </div>
             <div class="side-item" onclick="showPage('profile');toggleSidebar()"><span class="icon">👤</span> My Profile
             </div>
-            <div class="side-item" onclick="showPage('about');toggleSidebar()"><span class="icon">ℹ️</span> About us
-            </div>
+            <div class="side-item" onclick="showPage('earnings');toggleSidebar()"><span class="icon">💰</span> My
+                Earnings </div>
             <div class="side-item" onclick="showPage('support');toggleSidebar()"><span class="icon">🎧</span> Support
+            </div>
+            <div class="side-item" onclick="showPage('about');toggleSidebar()"><span class="icon">ℹ️</span> About Us
             </div>
             <div class="side-item" onclick="showPage('settings');toggleSidebar()"><span class="icon">⚙️</span> Settings
             </div>
@@ -510,14 +727,18 @@
                 </div>
             </div>
             <div class="nav-links">
-                <a href="#" id="nav-home" class="active" onclick="showPage('home')">Home</a>
-                <a href="#" id="nav-trips" onclick="showPage('trips')">My Activity</a>
+                <a href="javascript:void(0)" id="nav-home" class="active" onclick="showPage('home')">Home</a>
+                <a href="javascript:void(0)" id="nav-trips" onclick="showPage('trips')">My Activity</a>
             </div>
             <button class="btn-logout-small" onclick="logout()">Log out</button>
         </nav>
 
         <!-- ── HOME ── -->
         <div id="page-home">
+            <div class="broski-brand-wrapper">
+                <img src="broski-logo.png" alt="BROSKI" class="broski-logo-img">
+                <div class="broski-tagline">YOUR RIDE BRO!</div>
+            </div>
             <div class="selection-card">
                 <div class="selection-header">Select Role</div>
                 <div class="mode-pill" onclick="enterPassenger()">
@@ -531,30 +752,17 @@
                     <span class="mode-arrow">→</span>
                 </div>
             </div>
-            <div class="dashboard-compact">
-                <h4 class="recent-title">Recent</h4>
-                <div class="trip-row-small">
-                    <div class="car-circle-small"><img src="https://cdn-icons-png.flaticon.com/512/744/744465.png">
-                    </div>
-                    <span>UVPCE</span>
-                </div>
-                <div class="trip-row-small">
-                    <div class="car-circle-small"><img src="https://cdn-icons-png.flaticon.com/512/744/744465.png">
-                    </div>
-                    <span>MB UVPCE</span>
-                </div>
-                <div class="trip-row-small">
-                    <div class="car-circle-small"><img src="https://cdn-icons-png.flaticon.com/512/744/744465.png">
-                    </div>
-                    <span>HOSTEL</span>
-                </div>
-            </div>
         </div>
 
         <!-- ── ABOUT ── -->
         <div id="page-about" class="hidden">
             <div class="glass-card">
                 <button class="btn-back" onclick="showPage('home')">← Back</button>
+                <div style="margin-bottom: 20px;">
+                    <img src="broski-logo.png" alt="BROSKI" class="broski-logo-img"
+                        style="max-width: 180px; margin-bottom: 0;">
+                    <div class="broski-tagline">YOUR RIDE BRO!</div>
+                </div>
                 <h3>About Us</h3>
                 <p style="color:#555;line-height:1.7;margin-bottom:16px;">Campus Vehicle is a student-built ride
                     platform designed for university communities. It connects people who need a ride with verified
@@ -688,10 +896,39 @@
                 <div class="info-group">
                     <div class="info-label">Gender</div>
                     <select id="edit-gender" class="profile-select" onchange="updateGenderInDB(this.value)">
+                        <option value="">Not Set</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                         <option value="Other">Other</option>
                     </select>
+                </div>
+
+                <!-- ── Driver Sub-Profile ── -->
+                <div id="prof-driver-section" style="margin-top:24px;padding-top:20px;border-top:1px solid #eee;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                        <div
+                            style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:#888;font-weight:700;">
+                            🚗 Driver Profile</div>
+                        <span id="prof-driver-badge"
+                            style="font-size:11px;padding:3px 10px;border-radius:12px;font-weight:700;"></span>
+                    </div>
+                    <div id="prof-driver-details">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── EARNINGS ── -->
+        <div id="page-earnings" class="hidden">
+            <div class="glass-card">
+                <button class="btn-back" onclick="showPage('home')">← Back</button>
+                <h3 style="margin-bottom:4px;">My Earnings</h3>
+                <p style="font-size:13px;color:#888;margin-bottom:20px;">Driver revenue tracker</p>
+                <div id="earnings-content">
+                    <div style="text-align:center;color:#4e69e2;font-size:14px;padding:20px 0;">
+                        <span class="loading-spinner"></span> Loading...
+                    </div>
                 </div>
             </div>
         </div>
@@ -711,7 +948,7 @@
                     <input type="text" id="qp-drop" placeholder="e.g. Hostel Gate" autocomplete="off">
                 </div>
                 <button class="btn-primary" id="search-campus-btn" onclick="searchCampusDrivers()">
-                    Scan for Active Beacons
+                    Scan for Active Drivers
                 </button>
                 <div id="campus-drivers-results" style="margin-top:20px;text-align:left;"></div>
             </div>
@@ -791,6 +1028,9 @@
                         <div id="ps-driver-name" style="font-weight:700;font-size:15px;color:#1a8a4a;"></div>
                         <div id="ps-driver-dest" style="font-size:12px;color:#555;margin-top:3px;"></div>
                     </div>
+                </div>
+                <div id="qd-fare-negotiated"
+                    style="margin-top: 10px; text-align: center; color: #2ecc71; font-weight: 800; font-size: 16px;">
                 </div>
                 <div
                     style="text-align:left;background:rgba(78,105,226,0.05);padding:20px;border-radius:20px;margin-top:8px;">
@@ -1075,6 +1315,8 @@
 
     </div><!-- /home-page -->
 
+    <!-- Auth modals removed as they are now in standalone pages -->
+
     <!-- ══════════════════ TOAST CONTAINER ══════════════════ -->
     <div id="toast-container"></div>
 
@@ -1114,7 +1356,7 @@
             <p id="confirm-message">This action cannot be undone.</p>
             <div class="confirm-btns">
                 <button class="btn-primary" id="confirm-ok-btn" style="background:#f44336;">Confirm</button>
-                <button class="btn-primary" style="background:#888;" onclick="_confirmReject()">Cancel</button>
+                <button class="btn-primary" style="background:#888;" onclick="confirmReject()">Cancel</button>
             </div>
         </div>
     </div>
@@ -1130,8 +1372,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-    <!-- Main App Script -->
-    <script src="script.js"></script>
+    <!-- Main App Script (ES Module) -->
+    <script type="module" src="js/main.js"></script>
 </body>
 
 </html>

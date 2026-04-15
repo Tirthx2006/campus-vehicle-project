@@ -6,12 +6,68 @@
 
 body {
     margin: 0;
-    background-color: #4a5585;
+    padding: 0;
+    /* This is the magic part that fixes the centering */
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
+    /* Horizontal Center */
     justify-content: center;
+    /* Vertical Center */
+
+    /* Ensure the body itself doesn't have a background that blocks the nebula */
+    background: transparent;
+    overflow-x: hidden;
+}
+
+/* Updated: Focused Liquid Nebula */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Deeper, more focused purple colors */
+    background: #0f0c29;
+    background-image:
+        radial-gradient(at 20% 30%, rgba(138, 43, 226, 0.4) 0px, transparent 50%),
+        radial-gradient(at 80% 70%, rgba(75, 0, 130, 0.45) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(147, 51, 234, 0.25) 0px, transparent 60%);
+
+    /* Swapping "Rotate" for "Pulse & Drift" */
+    animation: nebulaPulse 15s ease-in-out infinite alternate;
+    z-index: -1;
+}
+
+@keyframes nebulaPulse {
+    0% {
+        transform: scale(1) translate(0, 0);
+        filter: hue-rotate(0deg);
+    }
+
+    50% {
+        transform: scale(1.1) translate(-2%, 2%);
+        filter: hue-rotate(15deg);
+        /* Subtle shift in purple tones */
+    }
+
+    100% {
+        transform: scale(1.05) translate(2%, -1%);
+        filter: hue-rotate(-10deg);
+    }
+}
+
+#home-page {
+    width: 100%;
+    min-height: 100vh;
+    background: transparent;
+    /* Lets the cosmic background shine through */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
 }
 
 /* This ensures pages don't stack on top of each other */
@@ -41,19 +97,10 @@ nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 15px 35px rgba(46, 8, 84, 0.4);
 }
 
 /* AUTH CARD STYLES (Sign Up & Login) */
-.auth-card {
-    background: white;
-    padding: 40px;
-    border-radius: 40px;
-    width: 90%;
-    max-width: 450px;
-    text-align: center;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
 
 h2 {
     font-size: 28px;
@@ -140,89 +187,88 @@ input {
     font-weight: bold;
 }
 
-/* HOME PAGE STYLES */
-#home-page {
-    width: 100%;
-    min-height: 100vh;
-    /* Changed from height: 100vh */
-    background-color: #b8c1ec;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-}
-
-/* The Background Card */
-.selection-card {
-    /* Changed from white to a soft off-white shade */
-    background: #fdfdff;
-    width: 90%;
-    max-width: 400px;
-    padding: 30px 20px;
-    border-radius: 30px;
-    margin: 40px auto 20px auto;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-    text-align: center;
-    border: 1px solid rgba(0, 0, 0, 0.01);
-}
-
+/* 1. The Header (Subtle & Clean) */
 .selection-header {
-    font-weight: 700;
-    color: #000000;
-    margin-bottom: 25px;
+    font-weight: 900;
+    color: #1a1a2e !important;
+    /* Force deep dark color */
+    margin-bottom: 30px;
     font-size: 14px;
     text-transform: uppercase;
-    letter-spacing: 2px;
-    opacity: 0.6;
+    letter-spacing: 3px;
+    text-align: center;
 }
 
-/* The Pill Buttons inside the card */
+/* 2. The Pill Buttons (The Main Options) */
 .mode-pill {
-    /* Kept your light tint but refined the shade for better contrast */
-    background: #f4f6ff;
-    margin-bottom: 15px;
-    padding: 18px 25px;
+    background: #ffffff;
+    /* Stark white so it pops */
+    margin-bottom: 18px;
+    padding: 20px 28px;
     border-radius: 50px;
     display: flex;
     align-items: center;
     cursor: pointer;
-    transition: 0.3s;
-    border: 1px solid rgba(78, 105, 226, 0.05);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 2px solid #f1f5f9;
+    /* Defined edge */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    /* Subtle lift */
 }
 
+/* 3. The Hover State (Purple Focus) */
 .mode-pill:hover {
-    /* Slightly deeper blue shade on hover */
-    background: #d1d7f4;
-    transform: scale(1.02);
-    border-color: rgba(78, 105, 226, 0.2);
+    background: #faf5ff;
+    /* Very light purple tint */
+    transform: scale(1.03) translateY(-2px);
+    border-color: #8a2be2;
+    /* Your theme's Purple */
+    box-shadow: 0 10px 25px rgba(138, 43, 226, 0.15);
 }
 
+/* 4. The Icon (Circle background makes it stand out) */
 .mode-icon {
-    font-size: 22px;
-    margin-right: 15px;
+    font-size: 24px;
+    margin-right: 18px;
+    background: #f3e8ff;
+    /* Soft purple circle */
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
+    justify-content: center;
+    transition: 0.3s;
 }
 
+.mode-pill:hover .mode-icon {
+    background: #8a2be2;
+    color: white;
+    transform: rotate(-10deg);
+}
+
+/* 5. The Text */
 .mode-text {
     flex-grow: 1;
     text-align: left;
-    font-size: 18px;
-    font-weight: 600;
-    color: #222;
+    font-size: 19px;
+    font-weight: 700;
+    color: #1a1a2e;
 }
 
+/* 6. The Arrow (Now Purple and Active) */
 .mode-arrow {
-    font-size: 18px;
-    color: #4e69e2;
+    font-size: 20px;
+    color: #8a2be2;
+    /* Swapped Blue for Purple */
     font-weight: bold;
-    opacity: 0.5;
-    transition: 0.3s;
+    opacity: 0.3;
+    transition: all 0.3s ease;
 }
 
 .mode-pill:hover .mode-arrow {
     opacity: 1;
-    transform: translateX(5px);
+    transform: translateX(8px);
 }
 
 /* --- Narrower (Small Width) Dashboard --- */
@@ -461,19 +507,24 @@ input {
 /* --- Polished Navbar --- */
 nav {
     position: sticky;
-    top: 0;
+    top: 20px;
+    /* Floating off the top edge */
     z-index: 1000;
-    width: 100%;
-    background: rgba(255, 255, 255, 0.9);
-    /* Slight transparency */
-    backdrop-filter: blur(10px);
-    padding: 12px 50px;
-    /* More horizontal breathing room */
+    width: 95%;
+    /* Not full width */
+    max-width: 1200px;
+    margin: 0 auto 20px auto;
+    background: rgba(255, 255, 255, 0.95);
+    /* Matches the cards */
+    backdrop-filter: blur(16px);
+    border-radius: 20px;
+    /* Rounded pill shape */
+    padding: 12px 30px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .nav-links {
@@ -536,38 +587,89 @@ nav {
     box-shadow: 0 6px 15px rgba(244, 67, 54, 0.3);
 }
 
+.auth-card {
+    background: rgba(255, 255, 255, 0.95);
+    /* Solid milky white */
+    backdrop-filter: blur(16px);
+    border-radius: 40px;
+    padding: 40px;
+    width: 90%;
+    max-width: 450px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    color: #1a1a2e;
+    /* Force text inside to be dark */
+}
+
 .glass-card {
-    background: rgba(255, 255, 255, 0.4);
-    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95);
+    /* Solid milky white */
+    backdrop-filter: blur(16px);
     border-radius: 30px;
     padding: 30px;
     width: 100%;
     max-width: 650px;
     margin: 30px 0;
     text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 20px 60px rgba(78, 105, 226, 0.10), 0 4px 20px rgba(0, 0, 0, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
     flex-shrink: 0;
+    color: #1a1a2e;
+    /* Force text inside to be dark */
+}
+
+.selection-card {
+    background: rgba(255, 255, 255, 0.95);
+    width: 90%;
+    max-width: 400px;
+    padding: 35px 25px;
+    border-radius: 35px;
+    margin: 20px auto;
+    text-align: center;
+    border: 1px solid rgba(138, 43, 226, 0.2);
+    box-shadow: 0 15px 35px rgba(46, 8, 84, 0.3);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
 }
 
 .btn-back {
-    background: #f0f0f0;
-    border: none;
-    color: #4a5585;
-    padding: 5px 15px;
-    border-radius: 10px;
+    /* Subtle lavender background so it's visible on white cards */
+    background: #f3e8ff;
+    border: 1px solid rgba(138, 43, 226, 0.1);
+
+    /* Using your theme's Purple for the text/arrow */
+    color: #8a2be2;
+
+    padding: 8px 18px;
+    /* Slightly larger for better touch area */
+    border-radius: 12px;
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 700;
     font-size: 13px;
     display: inline-flex;
     align-items: center;
     margin-bottom: 20px;
-    transition: 0.2s;
+    transition: all 0.3s ease;
+
+    /* Soft shadow to separate it from the card surface */
+    box-shadow: 0 4px 10px rgba(138, 43, 226, 0.08);
 }
 
 .btn-back:hover {
-    background: #e0e0e0;
-    transform: translateX(-3px);
+    /* Inverts to solid purple on hover */
+    background: #8a2be2;
+    color: #ffffff;
+    transform: translateX(-5px);
+    /* More pronounced movement */
+    box-shadow: 0 6px 15px rgba(138, 43, 226, 0.25);
+}
+
+/* Ensure any icon inside (like ←) spaces correctly */
+.btn-back i,
+.btn-back span {
+    margin-right: 8px;
 }
 
 .checkbox-group {
@@ -640,14 +742,16 @@ nav {
 }
 
 .dashboard {
-    background-color: #2b3467;
+    /* Deep Navy to match the gradient */
+    background: rgba(13, 39, 82, 0.95);
     width: 100%;
     max-width: 850px;
     border-radius: 30px 30px 0 0;
     padding: 40px;
     color: white;
     flex-grow: 1;
-    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 2px, transparent 2px, transparent 40px);
+    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 2px, transparent 2px, transparent 40px);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.2);
 }
 
 .trip-row {
@@ -1076,4 +1180,181 @@ nav {
     background: #ee5253;
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+}
+
+/* ══════════════════════════════════════════════════ */
+/* FIX: INVERT TEXT COLOR FOR WHITE MENUS & NAVBAR    */
+/* ══════════════════════════════════════════════════ */
+
+nav {
+    color: #1a1a2e;
+}
+
+#nav-user-name {
+    color: #1a1a2e;
+}
+
+.hamburger-trigger {
+    color: #1a1a2e !important;
+}
+
+.nav-links a {
+    color: #555;
+}
+
+.nav-links a.active {
+    color: #8a2be2 !important;
+    /* CHANGED: Now a vibrant Purple */
+}
+
+.side-menu {
+    color: #1a1a2e;
+}
+
+.side-user-info h4 {
+    color: #1a1a2e;
+}
+
+.side-item {
+    color: #444;
+}
+
+.side-item:hover {
+    color: #8a2be2;
+    /* CHANGED: Hover is now Purple */
+}
+
+/* ══════════════════════════════════════════════════ */
+/* MASTER FIX: BRIGHT LIGHT GLASS FOR ALL CARDS       */
+/* ══════════════════════════════════════════════════ */
+
+.glass-card,
+.auth-card,
+.selection-card,
+#page-profile .glass-card {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(16px) !important;
+    /* CHANGED: Border has a slight purple tint */
+    border: 1px solid rgba(138, 43, 226, 0.3) !important;
+    color: #1a1a2e !important;
+}
+
+/* Force Headers/Paragraphs inside to stay dark */
+.glass-card h2,
+.glass-card h3,
+.glass-card h4,
+.auth-card h2,
+.auth-card h3,
+.auth-card h4,
+.glass-card p,
+.glass-card label,
+.auth-card p,
+.auth-card label {
+    color: #1a1a2e !important;
+}
+
+.info-label {
+    color: #64748b !important;
+}
+
+.info-value,
+#prof-name,
+#prof-email,
+#prof-vehicle,
+#prof-plate,
+.settings-row,
+.earn-stat-lbl {
+    color: #1a1a2e !important;
+}
+
+/* Inputs stay crisp */
+.glass-card input,
+.auth-card input,
+.profile-select,
+select {
+    background: #ffffff !important;
+    color: #1a1a2e !important;
+    border: 2px solid #e2e8f0 !important;
+}
+
+.glass-card input:focus,
+.auth-card input:focus,
+.profile-select:focus {
+    border-color: #8a2be2 !important;
+    /* CHANGED: Focus border is Purple */
+    background: #faf5ff !important;
+}
+
+/* ══════════════════════════════════════════════════ */
+/* NEW: GLOBAL PURPLE GLOW SHADOWS                    */
+/* ══════════════════════════════════════════════════ */
+
+nav,
+.auth-card,
+.glass-card,
+.selection-card,
+.side-menu,
+.modal-content,
+#page-profile .glass-card {
+    /* Subtle purple glow to match the background */
+    box-shadow: 0 15px 35px rgba(46, 8, 84, 0.5) !important;
+    /* Soft tinted border to make the glass look premium */
+    border: 1px solid rgba(138, 43, 226, 0.3) !important;
+}
+
+/* ══════════════════════════════════════════════════ */
+/* NEW: BRANDING & LOGO STYLES (MPA & SPA)           */
+/* ══════════════════════════════════════════════════ */
+
+.auth-brand,
+.broski-brand-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 25px;
+    width: 100%;
+}
+
+.broski-logo-img {
+    height: 85px;
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 0 20px rgba(138, 43, 226, 0.6));
+    animation: logoFloat 4s ease-in-out infinite;
+    cursor: pointer;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.broski-logo-img:hover {
+    transform: scale(1.08) rotate(2deg);
+}
+
+.broski-tagline {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 4px;
+    color: #4e69e2;
+    margin-top: 12px;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(78, 105, 226, 0.3);
+}
+
+@keyframes logoFloat {
+
+    0%,
+    100% {
+        transform: translateY(0) rotate(0);
+    }
+
+    50% {
+        transform: translateY(-12px) rotate(-1deg);
+    }
+}
+
+/* Adjustments for the App Shell Navbar logo */
+nav .broski-logo-img {
+    height: 40px;
+    margin-bottom: 0;
 }

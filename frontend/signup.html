@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BROSKI – Create Account</title>
+    <meta name="description" content="Sign up for BROSKI, your campus ride-sharing platform.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: transparent;
+        }
+
+        /* Toast */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+            width: 90%;
+            max-width: 380px;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            width: 100%;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .22);
+            animation: toastIn .3s cubic-bezier(.21, 1.02, .73, 1) forwards;
+            pointer-events: all;
+        }
+
+        .toast.hiding {
+            animation: toastOut .3s ease forwards;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #1a8a4a, #2ecc71);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #c0392b, #f44336);
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #3a52c4, #4e69e2);
+        }
+
+        .toast.warning {
+            background: linear-gradient(135deg, #d68910, #f39c12);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .toast-msg {
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateY(-14px) scale(.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes toastOut {
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-14px) scale(.95);
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ══════════════════ SIGNUP PAGE ══════════════════ -->
+    <div id="signup-page" class="auth-card">
+        <div class="auth-brand">
+            <img src="broski-logo.png" alt="BROSKI" class="broski-logo-img">
+            <div class="broski-tagline">YOUR RIDE BRO!</div>
+        </div>
+        <h2 style="font-size:20px;margin-bottom:20px;">Create Account</h2>
+        <div class="input-group">
+            <label>Name</label>
+            <input type="text" id="signup-name" placeholder="Enter your name">
+        </div>
+        <div class="input-group">
+            <label>Email</label>
+            <input type="email" id="signup-email" placeholder="Enter your email">
+        </div>
+        <div class="input-group">
+            <label>Password</label>
+            <div style="position:relative;">
+                <input type="password" id="signup-password" placeholder="••••••••"
+                    onkeyup="checkPasswordStrength(this.value)">
+                <span onclick="togglePw('signup-password',this)"
+                    style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px;">👁️</span>
+            </div>
+            <div id="password-rules" style="font-size:11px;color:#f44336;margin-top:8px;line-height:1.5;">
+                <div id="rule-length">❌ Min 8 characters</div>
+                <div id="rule-upper">❌ 1 uppercase letter</div>
+                <div id="rule-lower">❌ 1 lowercase letter</div>
+                <div id="rule-number">❌ 1 number</div>
+                <div id="rule-special">❌ 1 special character (@$!%*?&#^)</div>
+            </div>
+        </div>
+        <button class="btn-primary" id="signup-btn" onclick="signupUser()">Sign up</button>
+        <div class="footer-text">Have an account? <span onclick="window.location.href='login.html'">Log In</span></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+        const API_BASE_URL = isLocal ? "http://localhost:5000" : "https://campus-vehicle-project.onrender.com";
+
+        // Redirect away if already logged in
+        if (localStorage.getItem("token")) {
+            window.location.replace("index.html");
+        }
+
+        const TOAST_ICONS = { success: '✅', error: '🚫', info: 'ℹ️', warning: '⚠️' };
+        function showNotification(msg, type = 'info', duration = 4000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span class="toast-icon">${TOAST_ICONS[type]}</span><span class="toast-msg">${msg}</span>`;
+            container.appendChild(toast);
+            const dismiss = () => { toast.classList.add('hiding'); toast.addEventListener('animationend', () => toast.remove(), { once: true }); };
+            toast.addEventListener('click', dismiss);
+            setTimeout(dismiss, duration);
+        }
+
+        function togglePw(id, icon) {
+            const input = document.getElementById(id);
+            if (input.type === 'password') { input.type = 'text'; icon.textContent = '🙈'; }
+            else { input.type = 'password'; icon.textContent = '👁️'; }
+        }
+
+        function checkPasswordStrength(pw) {
+            const rules = {
+                'rule-length': pw.length >= 8,
+                'rule-upper': /[A-Z]/.test(pw),
+                'rule-lower': /[a-z]/.test(pw),
+                'rule-number': /[0-9]/.test(pw),
+                'rule-special': /[@$!%*?&#^]/.test(pw)
+            };
+            for (const [id, valid] of Object.entries(rules)) {
+                const el = document.getElementById(id);
+                if (!el) continue;
+                if (valid) { el.innerText = el.innerText.replace('❌', '✅'); el.style.color = '#2ecc71'; }
+                else { el.innerText = el.innerText.replace('✅', '❌'); el.style.color = '#f44336'; }
+            }
+        }
+
+        document.getElementById('signup-password').addEventListener('keypress', e => {
+            if (e.key === 'Enter') document.getElementById('signup-btn').click();
+        });
+
+        function signupUser() {
+            const name = document.getElementById("signup-name").value.trim();
+            const email = document.getElementById("signup-email").value.trim();
+            const password = document.getElementById("signup-password").value.trim();
+            const gender = "Male"; // default; editable from profile later
+
+            if (!name || !email || !password) {
+                showNotification('All fields are required.', 'warning'); return;
+            }
+            const rules = {
+                len: password.length >= 8,
+                up: /[A-Z]/.test(password),
+                lo: /[a-z]/.test(password),
+                num: /[0-9]/.test(password),
+                sp: /[@$!%*?&#^]/.test(password)
+            };
+            if (!Object.values(rules).every(Boolean)) {
+                showNotification('Password does not meet the requirements.', 'warning'); return;
+            }
+
+            const btn = document.getElementById("signup-btn");
+            btn.disabled = true;
+            btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;"></span> Processing...';
+            btn.style.opacity = '0.7';
+
+            fetch(`${API_BASE_URL}/signup`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, email, password, gender })
+            })
+                .then(res => res.status === 201 ? res.text() : Promise.reject())
+                .then(() => {
+                    showNotification('Registered successfully! Please log in.', 'success', 3000);
+                    setTimeout(() => window.location.replace('login.html'), 1500);
+                })
+                .catch(() => showNotification('Registration Failed: User might already exist.', 'error'))
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Sign up';
+                    btn.style.opacity = '1';
+                });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BROSKI – Log In</title>
+    <meta name="description" content="Log in to BROSKI, your campus ride-sharing platform.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: transparent;
+        }
+
+        /* Forgot Password Modal */
+        #forgot-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100001;
+            padding: 20px;
+        }
+
+        #forgot-modal.hidden {
+            display: none;
+        }
+
+        .forgot-box {
+            background: #fff;
+            border-radius: 24px;
+            padding: 28px 24px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+            animation: toastIn .25s cubic-bezier(.21, 1.02, .73, 1) forwards;
+        }
+
+        .forgot-box h3 {
+            font-size: 18px;
+            font-weight: 800;
+            color: #1a1a2e;
+            margin: 0 0 6px;
+        }
+
+        .forgot-box p {
+            font-size: 13px;
+            color: #888;
+            margin: 0 0 18px;
+        }
+
+        .forgot-box input {
+            width: 100%;
+            padding: 13px 16px;
+            border: 2px solid #e0e4ff;
+            border-radius: 14px;
+            font-size: 14px;
+            color: #222;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .2s;
+            margin-bottom: 12px;
+        }
+
+        .forgot-box input:focus {
+            border-color: #4e69e2;
+        }
+
+        .forgot-box .step {
+            display: none;
+        }
+
+        .forgot-box .step.active {
+            display: block;
+        }
+
+        .forgot-modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .forgot-modal-actions button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 14px;
+            border: none;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+
+        .forgot-modal-actions button:hover {
+            opacity: 0.85;
+        }
+
+        #fp-submit-btn {
+            background: linear-gradient(135deg, #4e69e2, #2ecc71);
+            color: #fff;
+        }
+
+        #fp-cancel-btn,
+        #fp-cancel-btn2,
+        #fp-cancel-btn3 {
+            background: #f0f0f0;
+            color: #555;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateY(-14px) scale(.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Toast (reused) */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+            width: 90%;
+            max-width: 380px;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            width: 100%;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .22);
+            animation: toastIn .3s cubic-bezier(.21, 1.02, .73, 1) forwards;
+            pointer-events: all;
+        }
+
+        .toast.hiding {
+            animation: toastOut .3s ease forwards;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #1a8a4a, #2ecc71);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #c0392b, #f44336);
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #3a52c4, #4e69e2);
+        }
+
+        .toast.warning {
+            background: linear-gradient(135deg, #d68910, #f39c12);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .toast-msg {
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        @keyframes toastOut {
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-14px) scale(.95);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ══════════════════ LOGIN PAGE ══════════════════ -->
+    <div id="login-page" class="auth-card">
+        <div class="auth-brand">
+            <img src="broski-logo.png" alt="BROSKI" class="broski-logo-img">
+            <div class="broski-tagline">YOUR RIDE BRO!</div>
+        </div>
+        <h2 style="font-size:20px;margin-bottom:20px;">Welcome Back</h2>
+        <div class="input-group">
+            <label>Email</label>
+            <input type="email" id="login-email" placeholder="Enter your email">
+        </div>
+        <div class="input-group">
+            <label>Password</label>
+            <div style="position:relative;">
+                <input type="password" id="login-password" placeholder="••••••••" id="login-password">
+                <span onclick="togglePw('login-password',this)"
+                    style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px;">👁️</span>
+            </div>
+        </div>
+        <div style="text-align:right;margin-top:-8px;margin-bottom:12px;">
+            <span onclick="openForgotModal()"
+                style="font-size:13px;color:#4e69e2;cursor:pointer;font-weight:600;">Forgot Password?</span>
+        </div>
+        <button class="btn-primary" id="login-btn" onclick="loginUser()">Log In</button>
+        <div class="footer-text">Don't have an account? <span onclick="window.location.href='signup.html'">Sign
+                Up</span></div>
+    </div>
+
+    <!-- ══════════════════ FORGOT PASSWORD MODAL ══════════════════ -->
+    <div id="forgot-modal" class="hidden">
+        <div class="forgot-box">
+            <!-- Step 1: Enter Email -->
+            <div id="fp-step1" class="step active">
+                <h3>🔐 Reset Password</h3>
+                <p>Enter your registered email address</p>
+                <input type="email" id="fp-email" placeholder="Your email">
+                <div class="forgot-modal-actions">
+                    <button id="fp-cancel-btn" onclick="closeForgotModal()">Cancel</button>
+                    <button id="fp-submit-btn" onclick="fpSendOtp()">Send OTP</button>
+                </div>
+            </div>
+            <!-- Step 2: Enter OTP -->
+            <div id="fp-step2" class="step">
+                <h3>📬 Enter OTP</h3>
+                <p id="fp-step2-msg">Check your inbox for the 6-digit code.</p>
+                <input type="text" id="fp-otp" placeholder="6-digit OTP" maxlength="6">
+                <div class="forgot-modal-actions">
+                    <button id="fp-cancel-btn2" onclick="closeForgotModal()">Cancel</button>
+                    <button id="fp-submit-btn" onclick="fpVerifyOtp()">Verify OTP</button>
+                </div>
+            </div>
+            <!-- Step 3: New Password -->
+            <div id="fp-step3" class="step">
+                <h3>🔑 New Password</h3>
+                <p>Choose a strong new password</p>
+                <input type="password" id="fp-newpw" placeholder="New password">
+                <input type="password" id="fp-newpw2" placeholder="Confirm new password">
+                <div class="forgot-modal-actions">
+                    <button id="fp-cancel-btn3" onclick="closeForgotModal()">Cancel</button>
+                    <button id="fp-submit-btn" onclick="fpResetPassword()">Reset Password</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+        const API_BASE_URL = isLocal ? "http://localhost:5000" : "https://campus-vehicle-project.onrender.com";
+
+        // Redirect away if already logged in
+        if (localStorage.getItem("token")) {
+            window.location.replace("index.html");
+        }
+
+        const TOAST_ICONS = { success: '✅', error: '🚫', info: 'ℹ️', warning: '⚠️' };
+        function showNotification(msg, type = 'info', duration = 4000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span class="toast-icon">${TOAST_ICONS[type]}</span><span class="toast-msg">${msg}</span>`;
+            container.appendChild(toast);
+            const dismiss = () => { toast.classList.add('hiding'); toast.addEventListener('animationend', () => toast.remove(), { once: true }); };
+            toast.addEventListener('click', dismiss);
+            setTimeout(dismiss, duration);
+        }
+
+        function togglePw(id, icon) {
+            const input = document.getElementById(id);
+            if (input.type === 'password') { input.type = 'text'; icon.textContent = '🙈'; }
+            else { input.type = 'password'; icon.textContent = '👁️'; }
+        }
+
+        document.getElementById('login-password').addEventListener('keypress', e => {
+            if (e.key === 'Enter') document.getElementById('login-btn').click();
+        });
+
+        function loginUser() {
+            const email = document.getElementById("login-email").value.trim();
+            const password = document.getElementById("login-password").value.trim();
+            if (!email || !password) { showNotification('Missing credentials.', 'warning'); return; }
+
+            const btn = document.getElementById("login-btn");
+            btn.disabled = true;
+            btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;"></span> Processing...';
+            btn.style.opacity = '0.7';
+
+            fetch(`${API_BASE_URL}/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.message === "Login successful") {
+                        localStorage.setItem("token", data.token);
+                        const { token: _t, ...profile } = data;
+                        localStorage.setItem("user", JSON.stringify(profile));
+                        window.location.replace("index.html");
+                    } else {
+                        showNotification('Invalid credentials. Please try again.', 'error');
+                        btn.disabled = false;
+                        btn.innerHTML = 'Log In';
+                        btn.style.opacity = '1';
+                    }
+                })
+                .catch(() => {
+                    showNotification('Server unreachable. Please try later.', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = 'Log In';
+                    btn.style.opacity = '1';
+                });
+        }
+
+        // ── Forgot Password ────
+        function openForgotModal() {
+            ['fp-step1', 'fp-step2', 'fp-step3'].forEach((id, i) => {
+                document.getElementById(id).className = i === 0 ? 'step active' : 'step';
+            });
+            ['fp-email', 'fp-otp', 'fp-newpw', 'fp-newpw2'].forEach(id => {
+                const el = document.getElementById(id); if (el) el.value = '';
+            });
+            document.getElementById('forgot-modal').classList.remove('hidden');
+        }
+        function closeForgotModal() { document.getElementById('forgot-modal').classList.add('hidden'); }
+
+        async function fpSendOtp() {
+            const email = document.getElementById('fp-email').value.trim();
+            if (!email) { showNotification('Please enter your email.', 'warning'); return; }
+            const btns = document.querySelectorAll('#fp-step1 #fp-submit-btn');
+            btns.forEach(b => { b.disabled = true; b.innerText = 'Sending...'; });
+            try {
+                const res = await fetch(`${API_BASE_URL}/forgot-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+                const data = await res.json();
+                showNotification(data.message, 'info', 5000);
+                document.getElementById('fp-step2-msg').innerText = `OTP sent to ${email}. Check your inbox.`;
+                document.getElementById('fp-step1').className = 'step';
+                document.getElementById('fp-step2').className = 'step active';
+            } catch { showNotification('Network error. Try again.', 'error'); }
+            finally { btns.forEach(b => { b.disabled = false; b.innerText = 'Send OTP'; }); }
+        }
+
+        function fpVerifyOtp() {
+            const otp = document.getElementById('fp-otp').value.trim();
+            if (otp.length !== 6) { showNotification('OTP must be exactly 6 digits.', 'warning'); return; }
+            document.getElementById('fp-step2').className = 'step';
+            document.getElementById('fp-step3').className = 'step active';
+        }
+
+        async function fpResetPassword() {
+            const email = document.getElementById('fp-email').value.trim();
+            const otp = document.getElementById('fp-otp').value.trim();
+            const pw1 = document.getElementById('fp-newpw').value;
+            const pw2 = document.getElementById('fp-newpw2').value;
+            if (pw1 !== pw2) { showNotification('Passwords do not match.', 'warning'); return; }
+            const btns = document.querySelectorAll('#fp-step3 #fp-submit-btn');
+            btns.forEach(b => { b.disabled = true; b.innerText = 'Resetting...'; });
+            try {
+                const res = await fetch(`${API_BASE_URL}/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp, newPassword: pw1 }) });
+                const data = await res.json();
+                if (res.ok) { showNotification('Password reset! Please log in.', 'success', 5000); closeForgotModal(); }
+                else showNotification(data.message || 'Reset failed.', 'error');
+            } catch { showNotification('Network error.', 'error'); }
+            finally { btns.forEach(b => { b.disabled = false; b.innerText = 'Reset Password'; }); }
+        }
+    </script>
+    <style>
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</body>
+
+</html>
