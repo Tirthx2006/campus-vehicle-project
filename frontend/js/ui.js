@@ -225,7 +225,10 @@ export function renderRequestList(requests) {
                 : req.status === 'paid'
                     ? '<span style="font-size:14px;color:#2ecc71;font-weight:800;background:#d5f5e3;padding:6px 12px;border-radius:8px;">✅ Settled</span>'
                     : req.status === 'arrived'
-                        ? '<span style="font-size:14px;color:#f39c12;font-weight:800;background:#fff3cd;padding:6px 12px;border-radius:8px;">🚗 Arrived</span>'
+                        ? `<div style="display:flex;gap:10px;align-items:center;">
+                     <span style="font-size:14px;color:#f39c12;font-weight:800;background:#fff3cd;padding:6px 12px;border-radius:8px;">🚗 Arrived</span>
+                     ${(currentMissionStatus === 'payment_pending') ? `<button class="btn-primary" style="width:auto;padding:6px 16px;background:#2ecc71;font-size:12px;margin:0;border-radius:8px;" onclick="window.driverConfirmPayment('${req.email}', 'route_share')">✓ Paid</button>` : ''}
+                   </div>`
                         : `<div style="display:flex;gap:10px;align-items:center;">
                      <span style="font-size:14px;color:#4e69e2;font-weight:800;background:#eef1ff;padding:6px 12px;border-radius:8px;">✓ Linked</span>
                      ${(currentMissionStatus === 'active') ? `<button class="btn-primary" style="width:auto;padding:6px 16px;background:#f39c12;font-size:12px;margin:0;border-radius:8px;" onclick="window.arrivePassenger('${req.email}', this)">📍 Arrive</button>` : ''}

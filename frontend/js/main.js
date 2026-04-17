@@ -118,6 +118,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     document.getElementById("cc-seats").innerText = `${mission.bookedSeats}/${mission.totalSeats}`;
                     document.getElementById("cc-fare").innerText = `₹${parseFloat(mission.fare).toFixed(2)}`;
                     setCurrentMissionStatus(mission.status || 'active');
+                    if (mission.rideId) localStorage.setItem("activeMissionID", mission.rideId);
                     renderRequestList(mission.requests);
 
                     if (mission.destLat && mission.destLng) {
@@ -791,7 +792,7 @@ function requestQuickPayment(requestId, buttonEl) {
     authFetch(`${API_BASE_URL}/request-quick-payment`, { method: "POST", body: JSON.stringify({ requestId }) })
         .then(() => {
             showNotification('Payment requested from passenger.', 'info');
-            if (buttonEl) { buttonEl.disabled = false; buttonEl.innerText = "🏁 Close Mission"; buttonEl.style.background = "#2ecc71"; buttonEl.setAttribute("onclick", `window.completeQuickDrop('${requestId}',this)`); }
+            if (buttonEl) { buttonEl.disabled = false; buttonEl.innerText = "✓ Payment Received & Close"; buttonEl.style.background = "#2ecc71"; buttonEl.setAttribute("onclick", `window.completeQuickDrop('${requestId}',this)`); }
         })
         .catch(() => { showNotification("Failed to request payments", "error"); if (buttonEl) buttonEl.disabled = false; });
 }
@@ -937,6 +938,33 @@ function selectSubMode(subMode) {
     }
 }
 
+async function driverConfirmPayment(passengerEmail, type) {
+    const rideId = localStorage.getItem("activeMissionID");
+    if (!rideId) {
+        showNotification("Reference ID missing. Please refresh.", "error");
+        return;
+    }
+
+    try {
+        const res = await authFetch(`${API_BASE_URL}/driver-confirm-payment`, {
+            method: "POST",
+            body: JSON.stringify({ passengerEmail, type, rideId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showNotification(data.message || "Payment confirmed!", "success");
+            // The socket will eventually sync the list, but let's re-scan immediately 
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user && socket) socket.emit("request_current_rides", { driverEmail: user.email });
+        } else {
+            showNotification(data.message || "Failed to confirm", "error");
+        }
+    } catch (err) {
+        console.error("Manual Payment Confirmation Error:", err);
+        showNotification("Network error during confirmation", "error");
+    }
+}
+
 // ── Logout ────────────────────────────────────────────────
 function logout() {
     if (getIsOnline() || getIsMissionActive()) { showNotification('You cannot logout while a shift or mission is active.', 'warning'); return; }
@@ -991,5 +1019,7 @@ Object.assign(window, {
     // Forgot password
     openForgotModal, closeForgotModal, fpSendOtp, fpVerifyOtp, fpResetPassword,
     // Confirm dialog
-    confirmReject
+    confirmReject,
+    // Manual Payment
+    driverConfirmPayment
 });

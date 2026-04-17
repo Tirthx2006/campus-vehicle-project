@@ -890,6 +890,12 @@ app.post("/passenger-paid", auth, async (req, res) => {
   const { type, rideId, paymentMethod = "cash" } = req.body;
 
   try {
+    // ── GUARD: Prevent duplicate earnings ──────────────────────────────
+    const existing = await Earning.findOne({ rideId: rideId.toString(), passengerEmail, rideType: type });
+    if (existing) {
+      return res.json({ message: "Already marked as paid" });
+    }
+
     if (type === "quick_drop") {
       const qReq = await QuickRequest.findById(rideId);
       if (!qReq) return res.status(404).json({ message: "Request not found" });
@@ -929,6 +935,70 @@ app.post("/passenger-paid", auth, async (req, res) => {
   } catch (err) {
     console.error("passenger-paid error:", err);
     res.status(500).json({ message: "Error updating payment" });
+  }
+});
+
+// DRIVER CONFIRM PAYMENT (Manual override by driver)
+app.post("/driver-confirm-payment", auth, async (req, res) => {
+  const { email: driverEmail } = req.user;
+  const { passengerEmail, type, rideId, paymentMethod = "cash" } = req.body;
+
+  try {
+    // ── GUARD: Prevent duplicate earnings ──────────────────────────────
+    const existing = await Earning.findOne({ rideId: rideId.toString(), passengerEmail, rideType: type });
+    if (existing) {
+      return res.json({ message: "Already marked as paid" });
+    }
+
+    if (type === "quick_drop") {
+      const qReq = await QuickRequest.findOne({ _id: rideId, driverEmail });
+      if (!qReq) return res.status(404).json({ message: "Quick Drop not found or unauthorized" });
+
+      await Earning.create({
+        driverEmail,
+        passengerEmail,
+        rideType: "quick_drop",
+        fare: qReq.fare || 0,
+        paymentMethod,
+        rideId: rideId.toString()
+      });
+
+      // Notify passenger that driver confirmed their payment
+      io.to(passengerEmail).emit("quick_drop_completed", { 
+        driverName: req.user.name, 
+        message: "Payment confirmed by driver. Drop completed!" 
+      });
+      io.to(driverEmail).emit("passenger_paid", { passengerEmail, type, requestId: rideId });
+
+      res.json({ message: "Payment confirmed manually" });
+    } else {
+      // Route Share
+      const ride = await Ride.findOneAndUpdate(
+        { _id: rideId, driverEmail, "requests.email": passengerEmail },
+        { $set: { "requests.$.status": "paid" } },
+        { new: true }
+      );
+
+      if (!ride) return res.status(404).json({ message: "Ride or passenger not found" });
+
+      await Earning.create({
+        driverEmail: ride.driverEmail,
+        passengerEmail,
+        rideType: "route_share",
+        fare: ride.fare || 0,
+        paymentMethod,
+        rideId: rideId.toString()
+      });
+
+      // Update passenger's UI via socket
+      io.to(passengerEmail).emit("ride_completed", { message: "Payment confirmed by driver. Journey completed!" });
+      io.to(driverEmail).emit("ride_requests_list", ride.requests);
+
+      res.json({ message: "Payment confirmed manually" });
+    }
+  } catch (err) {
+    console.error("driver-confirm-payment error:", err);
+    res.status(500).json({ message: "Error confirming payment" });
   }
 });
 
@@ -1179,6 +1249,7 @@ app.get("/get-active-mission", auth, async (req, res) => {
     if (!ride) return res.json({ active: false });
     res.json({
       active: true,
+      rideId: ride._id,
       status: ride.status,
       destination: ride.destination,
       destLat: ride.destLat,
@@ -1276,6 +1347,19 @@ app.post("/complete-quick-drop", auth, async (req, res) => {
       { new: true }
     );
     if (!quickReq) return res.status(404).json({ message: "Request not found" });
+
+    // ── Record earning if not already recorded ─────────────────────────
+    const existing = await Earning.findOne({ rideId: requestId.toString(), rideType: "quick_drop" });
+    if (!existing) {
+      await Earning.create({
+        driverEmail: quickReq.driverEmail,
+        passengerEmail: quickReq.passengerEmail,
+        rideType: "quick_drop",
+        fare: quickReq.fare || 0,
+        paymentMethod: "cash", // Assume cash if driver closes manually without passenger marking paid
+        rideId: requestId.toString()
+      });
+    }
 
     io.to(quickReq.passengerEmail).emit("quick_drop_completed", {
       driverName,
