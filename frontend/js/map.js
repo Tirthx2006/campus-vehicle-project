@@ -137,7 +137,9 @@ export function attachAutocomplete(inputId, onPlace) {
 
         autocompleteTimer = setTimeout(async () => {
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&countrycodes=IN&format=json&limit=5`);
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&countrycodes=IN&format=json&limit=5&email=broskisupport@gmail.com`, {
+                    headers: { 'Accept-Language': 'en-US,en;q=0.9' }
+                });
                 const results = await res.json();
                 dropdown.innerHTML = "";
                 if (results.length === 0) { dropdown.classList.add("hidden"); return; }
@@ -194,7 +196,9 @@ export async function showDestinationPreview(place) {
         const fromText = (document.getElementById("rs-from")?.value || "").trim();
         if (fromText.length > 2) {
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fromText)}&countrycodes=IN&format=json&limit=1`);
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fromText)}&countrycodes=IN&format=json&limit=1&email=broskisupport@gmail.com`, {
+                    headers: { 'Accept-Language': 'en-US,en;q=0.9' }
+                });
                 const results = await res.json();
                 if (results.length > 0) {
                     originLat = parseFloat(results[0].lat);
@@ -217,6 +221,7 @@ export async function showDestinationPreview(place) {
     L.circleMarker(originCoords, { radius: 8, color: '#2ecc71', fillColor: '#2ecc71', fillOpacity: 1, weight: 2 }).bindTooltip('Start', { permanent: false }).addTo(map);
     L.circleMarker(destCoords, { radius: 8, color: '#f44336', fillColor: '#f44336', fillOpacity: 1, weight: 2 }).bindTooltip('Destination', { permanent: false }).addTo(map);
     mapInstances["rs-map-container"] = { map };
+    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
 
     try {
         const routeData = await fetchRouteOSRM([originLng, originLat], [destLng, destLat]);
@@ -245,13 +250,16 @@ export async function drawRouteMap(containerId, origin, destination, onEta) {
     const map = L.map(mapDiv, { zoomControl: false }).setView([origin.lat, origin.lng], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     mapInstances[containerId] = { map };
+    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
 
     L.circleMarker([origin.lat, origin.lng], { radius: 6, color: '#2ecc71', fillOpacity: 1 }).addTo(map);
 
     let destLng, destLat;
     if (typeof destination === 'string') {
         try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(destination)}&countrycodes=IN&format=json&limit=5`);
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(destination)}&countrycodes=IN&format=json&limit=5&email=broskisupport@gmail.com`, {
+                headers: { 'Accept-Language': 'en-US,en;q=0.9' }
+            });
             const results = await res.json();
             if (results.length > 0) {
                 destLat = parseFloat(results[0].lat);
